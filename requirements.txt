@@ -1,3 +1,0 @@
-pillow
-streamlit
-streamlit_cropper
