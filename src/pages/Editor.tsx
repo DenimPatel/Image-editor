@@ -7,6 +7,7 @@ import { CropStage } from '../components/CropStage';
 import { ExportPanel } from '../components/ExportPanel';
 import { Nav } from '../components/ui/Nav';
 import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { ToolRail, type ToolSection } from '../components/ui/ToolRail';
 import { decodeImageFile } from '../lib/decode';
 import { computeOutputHeight, renderFinal, renderTransformed } from '../lib/render';
@@ -242,7 +243,13 @@ export default function Editor() {
                   />
                 </Card>
 
-                <Dropzone onFile={handleFile} />
+                <p className="app__new-image-hint">
+                  To process a new image, go back to the{' '}
+                  <Button as="link" to="/" variant="ghost">
+                    homepage
+                  </Button>
+                  .
+                </p>
               </div>
             </div>
 
