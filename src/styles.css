@@ -545,6 +545,21 @@ h4 {
   margin: 0.5rem 0 0;
 }
 
+.app__new-image-hint {
+  text-align: center;
+  color: var(--muted);
+  margin: 0;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.app__new-image-hint .btn {
+  padding: 0;
+  display: inline;
+  font-weight: 600;
+}
+
 /* Tool rail: vertical icon nav on desktop, horizontal tab strip on mobile */
 
 .tool-rail {
