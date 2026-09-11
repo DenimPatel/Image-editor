@@ -512,17 +512,7 @@ h4 {
 }
 
 .app__editor {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 1.5rem;
-  align-items: start;
   margin-top: 1.5rem;
-}
-
-@media (max-width: 900px) {
-  .app__editor {
-    grid-template-columns: 1fr;
-  }
 }
 
 .app__stage {
@@ -815,8 +805,6 @@ fieldset legend,
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  position: sticky;
-  top: 84px;
 }
 
 .export-panel label {

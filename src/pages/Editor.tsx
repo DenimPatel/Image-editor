@@ -243,6 +243,24 @@ export default function Editor() {
                   />
                 </Card>
 
+                <div id="export" className={activeSection === 'export' ? 'is-focused' : ''}>
+                  <ExportPanel
+                    format={state.format}
+                    quality={state.quality}
+                    outWidth={state.outWidth}
+                    outHeight={outHeight}
+                    matte={state.matte}
+                    estimatedBytes={estimatedBytes}
+                    isEstimating={isEstimating}
+                    previewUrl={previewUrl}
+                    onFormat={(format: ExportFormat) => apply({ type: 'SET_FORMAT', format })}
+                    onQuality={(value) => apply({ type: 'SET_QUALITY', value })}
+                    onOutWidth={(value) => apply({ type: 'SET_OUT_WIDTH', value })}
+                    onMatte={(value) => apply({ type: 'SET_MATTE', value })}
+                    onDownload={() => void handleDownload()}
+                  />
+                </div>
+
                 <p className="app__new-image-hint">
                   To process a new image, go back to the{' '}
                   <Button as="link" to="/" variant="ghost">
@@ -251,24 +269,6 @@ export default function Editor() {
                   .
                 </p>
               </div>
-            </div>
-
-            <div id="export" className={activeSection === 'export' ? 'is-focused' : ''}>
-              <ExportPanel
-                format={state.format}
-                quality={state.quality}
-                outWidth={state.outWidth}
-                outHeight={outHeight}
-                matte={state.matte}
-                estimatedBytes={estimatedBytes}
-                isEstimating={isEstimating}
-                previewUrl={previewUrl}
-                onFormat={(format: ExportFormat) => apply({ type: 'SET_FORMAT', format })}
-                onQuality={(value) => apply({ type: 'SET_QUALITY', value })}
-                onOutWidth={(value) => apply({ type: 'SET_OUT_WIDTH', value })}
-                onMatte={(value) => apply({ type: 'SET_MATTE', value })}
-                onDownload={() => void handleDownload()}
-              />
             </div>
           </div>
         )}
