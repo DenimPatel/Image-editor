@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Interactive Image Editor</title>
+    <script>
+      // GitHub Pages SPA fallback: encode the requested path into a query
+      // string and redirect to the app root, which decodes it back via the
+      // matching script in index.html. See rafgraph/spa-github-pages.
+      (function () {
+        var segmentCount = 1; // matches the "/Image-editor/" base path
+        var l = window.location;
+        sessionStorage.redirect = l.href;
+        var pathSegments = l.pathname.split('/').slice(0, 1 + segmentCount).join('/');
+        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + pathSegments + '/');
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
