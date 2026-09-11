@@ -512,17 +512,7 @@ h4 {
 }
 
 .app__editor {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 1.5rem;
-  align-items: start;
   margin-top: 1.5rem;
-}
-
-@media (max-width: 900px) {
-  .app__editor {
-    grid-template-columns: 1fr;
-  }
 }
 
 .app__stage {
@@ -815,8 +805,6 @@ fieldset legend,
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  position: sticky;
-  top: 84px;
 }
 
 .export-panel label {
@@ -849,11 +837,13 @@ fieldset legend,
 }
 
 .export-panel__download {
+  width: 100%;
   background: var(--ink);
   border-color: var(--ink);
   color: var(--bg);
   font-weight: 700;
   padding: 0.7rem;
+  margin-top: 0.6rem;
 }
 
 .export-panel__download:hover {
@@ -862,11 +852,19 @@ fieldset legend,
 }
 
 .export-panel__preview {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 200px;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.75rem;
   text-align: center;
   background: var(--bg-alt);
+  box-shadow: var(--shadow);
+  z-index: 20;
 }
 
 .export-panel__preview img {
@@ -892,5 +890,12 @@ fieldset legend,
 
   .toolbar {
     justify-content: center;
+  }
+
+  .export-panel__preview {
+    width: 128px;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    padding: 0.5rem;
   }
 }

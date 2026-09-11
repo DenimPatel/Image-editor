@@ -102,15 +102,6 @@ export function ExportPanel({
             : ''}
       </p>
 
-      <button
-        type="button"
-        className="export-panel__download"
-        onClick={onDownload}
-        title="Download (⌘/Ctrl+S)"
-      >
-        Download final image
-      </button>
-
       <div className="export-panel__preview" aria-live="polite">
         <p>Final output</p>
         {format === 'pdf' ? (
@@ -121,6 +112,14 @@ export function ExportPanel({
         {estimatedBytes !== null && (
           <p className="export-panel__size-small">{convertBytes(estimatedBytes)}</p>
         )}
+        <button
+          type="button"
+          className="export-panel__download"
+          onClick={onDownload}
+          title="Download (⌘/Ctrl+S)"
+        >
+          Download final image
+        </button>
       </div>
     </fieldset>
   );
