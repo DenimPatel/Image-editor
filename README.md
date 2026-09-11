@@ -1,54 +1,85 @@
-# 🎨 Interactive Image Editor App
+# 🎨 Interactive Image Editor
 
-🎉 Introducing **Interactive Image Editor**! 
+**Live demo: https://denimpatel.github.io/Image-editor/**
 
-With this easy-to-use, web-based editor, you can quickly enhance, crop, and customize your images with a few clicks—all from your browser.
+[![Deploy to GitHub Pages](https://github.com/DenimPatel/Image-editor/actions/workflows/deploy.yml/badge.svg)](https://github.com/DenimPatel/Image-editor/actions/workflows/deploy.yml)
 
-![loading](image.png)
+A fast, free, entirely client-side image editor. Drop in a photo, adjust it, crop it, and
+export — all in the browser, no server or upload involved.
+
+![Interactive Image Editor screenshot](image.png)
 
 ## 📸 Features
 
-- **Image Upload**: Supports `JPEG`, `PNG`, and `JPG` formats.
-- **Flip and Rotate**: Quickly adjust orientation with mirroring and rotation tools.
-- **Grid Overlay**: Includes a helpful Rule of Thirds overlay for perfect composition.
-- **Aspect Ratio Crop**: Crop images to custom aspect ratios with a draggable crop box.
-- **Quality Adjustments**: Control output quality and file size to suit your needs.
-- **File Download Options**: Save as JPEG, PNG, or PDF with selected width.
+- **Upload**: drag-and-drop, click-to-browse, or paste an image straight from the clipboard
+  (JPEG, PNG, JPG).
+- **EXIF-correct orientation**: phone photos load upright automatically.
+- **Flip & rotate**: horizontal/vertical flip, 90° CW/CCW, and a free custom-angle slider.
+- **Adjustments**: brightness, contrast, and saturation, each reset with a double-click.
+- **Crop**: draggable crop box with 1:1 / 4:3 / 3:2 / 16:9 presets, a free mode, or a
+  validated custom `W:H` ratio field.
+- **Rule-of-thirds grid**: an overlay toggle that helps compose the shot — it's never baked
+  into the exported file.
+- **Export**: JPEG, PNG, WebP, or PDF, with a width selector, a quality slider, and a matte
+  color for flattening transparency or filling rotated corners. PNG/WebP keep source alpha.
+- **Live output size estimate**, computed from the real encoded file.
+- **Undo / redo / reset**, with `⌘/Ctrl+Z`, `⇧⌘/Ctrl+Z`, and keyboard shortcuts for rotate
+  (`[` `]`), flip (`f`), grid (`g`), and download (`⌘/Ctrl+S`).
 
-## 🌟 Getting Started
+## 🌟 Getting started
 
 ### Prerequisites
-- [Python](https://www.python.org/downloads/)
-- [Streamlit](https://docs.streamlit.io/)
+
+- [Node.js](https://nodejs.org/) 20+
 
 ### Installation
-1. Clone the repository(WIP):
-   ```bash
-   git clone https://github.com/DenimPatel/Image-editor.git
-   ```
-2. Install dependencies(WIP):
-   ```bash
-   pip install -r requirements.txt
-   ```
 
-3. Run the app:
-   ```bash
-   streamlit run app.py
-   ```
+```bash
+git clone https://github.com/DenimPatel/Image-editor.git
+cd Image-editor
+npm install
+```
+
+### Run locally
+
+```bash
+npm run dev
+```
+
+### Build for production
+
+```bash
+npm run build
+npm run preview   # serve the built dist/ output locally
+```
+
+### Other scripts
+
+```bash
+npm run lint        # ESLint
+npm run typecheck   # tsc --noEmit
+npm test            # Vitest
+npm run format      # Prettier
+```
 
 ## 🚀 Usage
 
-1. **Upload Your Image**: Click "Upload an Image" to select your file.
-2. **Edit with Ease**: Apply mirror, rotation, or cropping adjustments as needed.
-3. **Download the Final Image**: Choose the format, set your resolution, and download!
+1. **Upload an image** — drag it in, click to browse, or paste from the clipboard.
+2. **Edit** — flip, rotate, adjust brightness/contrast/saturation, and crop to the aspect
+   ratio you need.
+3. **Export** — pick a format and width, then download.
 
-## 🎨 App Highlights
+## 🏗️ How it's built
 
-- **Instant Adjustments**: See real-time changes as you apply effects.
-- **Stylish and User-Friendly**: Thoughtfully designed for a smooth and enjoyable experience.
+This app is a static React + TypeScript site built with Vite, deployed to GitHub Pages via
+GitHub Actions. Every editing operation runs on an HTML `<canvas>` in the browser — nothing is
+ever uploaded anywhere. See [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) for
+the deployment pipeline.
 
----
+> An earlier version of this project was a Python/Streamlit app that ran the same editing
+> operations server-side. It has been retired in favor of this client-side rewrite, which
+> deploys for free on GitHub Pages; the old implementation still lives in git history.
 
-Enjoy creating stunning images, and feel free to contribute to the project!
+## 🤝 Contributing
 
----
+Issues and pull requests are welcome!
