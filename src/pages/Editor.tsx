@@ -1,24 +1,44 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import { Dropzone } from './components/Dropzone';
-import { Toolbar } from './components/Toolbar';
-import { Adjustments } from './components/Adjustments';
-import { CropStage } from './components/CropStage';
-import { ExportPanel } from './components/ExportPanel';
-import { decodeImageFile } from './lib/decode';
-import { computeOutputHeight, renderFinal, renderTransformed } from './lib/render';
-import { downloadBlob, encodeCanvas, extensionFor } from './lib/encode';
-import { useDebouncedValue } from './hooks/useDebouncedValue';
+import { useParams } from 'react-router-dom';
+import { Dropzone } from '../components/Dropzone';
+import { Toolbar } from '../components/Toolbar';
+import { Adjustments } from '../components/Adjustments';
+import { CropStage } from '../components/CropStage';
+import { ExportPanel } from '../components/ExportPanel';
+import { Nav } from '../components/ui/Nav';
+import { Card } from '../components/ui/Card';
+import { ToolRail, type ToolSection } from '../components/ui/ToolRail';
+import { decodeImageFile } from '../lib/decode';
+import { computeOutputHeight, renderFinal, renderTransformed } from '../lib/render';
+import { downloadBlob, encodeCanvas, extensionFor } from '../lib/encode';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import {
   historyReducer,
   initialHistory,
   type CropRect,
   type EditorAction,
   type ExportFormat,
-} from './state/editorReducer';
+} from '../state/editorReducer';
 
 const RENDER_DEBOUNCE_MS = 120;
+const VALID_SECTIONS = new Set<ToolSection>(['transform', 'adjust', 'crop', 'export']);
 
-export default function App() {
+export default function Editor() {
+  const { tool } = useParams<{ tool?: string }>();
+  const [activeSection, setActiveSection] = useState<ToolSection | null>(null);
+
+  useEffect(() => {
+    if (tool && VALID_SECTIONS.has(tool as ToolSection)) {
+      setActiveSection(tool as ToolSection);
+    }
+  }, [tool]);
+
+  useEffect(() => {
+    if (!activeSection) return;
+    const el = document.getElementById(activeSection);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activeSection]);
+
   const [fileName, setFileName] = useState<string>('image');
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
   const [history, dispatch] = useReducer(historyReducer, initialHistory);
@@ -164,78 +184,88 @@ export default function App() {
   }, [apply, handleDownload]);
 
   return (
-    <div className="app">
-      <header className="app__header">
-        <h1>🎨 Interactive Image Editor</h1>
-        <p>Create stunning images effortlessly, entirely in your browser.</p>
-      </header>
+    <div className="editor-page">
+      <Nav variant="editor" />
 
-      {!bitmap && <Dropzone onFile={handleFile} />}
-      {error && <p className="app__error">{error}</p>}
+      <div className="wrap editor-wrap">
+        {!bitmap && <Dropzone onFile={handleFile} />}
+        {error && <p className="app__error">{error}</p>}
 
-      {bitmap && transformedUrl && (
-        <div className="app__editor">
-          <div className="app__stage">
-            <Toolbar
-              flipH={state.flipH}
-              flipV={state.flipV}
-              rotation={state.rotation}
-              showGrid={state.showGrid}
-              canUndo={history.past.length > 0}
-              canRedo={history.future.length > 0}
-              onFlipH={() => apply({ type: 'TOGGLE_FLIP_H' })}
-              onFlipV={() => apply({ type: 'TOGGLE_FLIP_V' })}
-              onRotateBy={(degrees) => apply({ type: 'ROTATE_BY', degrees })}
-              onSetRotation={(degrees) => apply({ type: 'SET_ROTATION', degrees })}
-              onToggleGrid={() => apply({ type: 'TOGGLE_GRID' })}
-              onUndo={() => dispatch({ type: 'UNDO' })}
-              onRedo={() => dispatch({ type: 'REDO' })}
-              onReset={() => apply({ type: 'RESET' })}
-            />
+        {bitmap && transformedUrl && (
+          <div className="app__editor">
+            <div className="app__stage">
+              <ToolRail active={activeSection} onSelect={setActiveSection} />
 
-            <p className="app__original-dimensions">
-              Original dimensions: {bitmap.width} x {bitmap.height} pixels
-            </p>
+              <div className="app__sections">
+                <Card legend="Transform" focused={activeSection === 'transform'} id="transform">
+                  <Toolbar
+                    flipH={state.flipH}
+                    flipV={state.flipV}
+                    rotation={state.rotation}
+                    showGrid={state.showGrid}
+                    canUndo={history.past.length > 0}
+                    canRedo={history.future.length > 0}
+                    onFlipH={() => apply({ type: 'TOGGLE_FLIP_H' })}
+                    onFlipV={() => apply({ type: 'TOGGLE_FLIP_V' })}
+                    onRotateBy={(degrees) => apply({ type: 'ROTATE_BY', degrees })}
+                    onSetRotation={(degrees) => apply({ type: 'SET_ROTATION', degrees })}
+                    onToggleGrid={() => apply({ type: 'TOGGLE_GRID' })}
+                    onUndo={() => dispatch({ type: 'UNDO' })}
+                    onRedo={() => dispatch({ type: 'REDO' })}
+                    onReset={() => apply({ type: 'RESET' })}
+                  />
+                  <p className="app__original-dimensions">
+                    Original dimensions: {bitmap.width} x {bitmap.height} pixels
+                  </p>
+                </Card>
 
-            <Adjustments
-              brightness={state.brightness}
-              contrast={state.contrast}
-              saturation={state.saturation}
-              onBrightness={(value) => apply({ type: 'SET_BRIGHTNESS', value })}
-              onContrast={(value) => apply({ type: 'SET_CONTRAST', value })}
-              onSaturation={(value) => apply({ type: 'SET_SATURATION', value })}
-            />
+                <div id="adjust" className={activeSection === 'adjust' ? 'is-focused' : ''}>
+                  <Adjustments
+                    brightness={state.brightness}
+                    contrast={state.contrast}
+                    saturation={state.saturation}
+                    onBrightness={(value) => apply({ type: 'SET_BRIGHTNESS', value })}
+                    onContrast={(value) => apply({ type: 'SET_CONTRAST', value })}
+                    onSaturation={(value) => apply({ type: 'SET_SATURATION', value })}
+                  />
+                </div>
 
-            <CropStage
-              src={transformedUrl}
-              geometryKey={geometryKey}
-              aspect={state.aspect}
-              showGrid={state.showGrid}
-              crop={state.crop}
-              onCropChange={(crop: CropRect) => apply({ type: 'SET_CROP', crop })}
-              onAspectChange={(aspect) => apply({ type: 'SET_ASPECT', aspect })}
-            />
+                <Card id="crop" className="crop-card" legend="Crop" focused={activeSection === 'crop'}>
+                  <CropStage
+                    src={transformedUrl}
+                    geometryKey={geometryKey}
+                    aspect={state.aspect}
+                    showGrid={state.showGrid}
+                    crop={state.crop}
+                    onCropChange={(crop: CropRect) => apply({ type: 'SET_CROP', crop })}
+                    onAspectChange={(aspect) => apply({ type: 'SET_ASPECT', aspect })}
+                  />
+                </Card>
 
-            <Dropzone onFile={handleFile} />
+                <Dropzone onFile={handleFile} />
+              </div>
+            </div>
+
+            <div id="export" className={activeSection === 'export' ? 'is-focused' : ''}>
+              <ExportPanel
+                format={state.format}
+                quality={state.quality}
+                outWidth={state.outWidth}
+                outHeight={outHeight}
+                matte={state.matte}
+                estimatedBytes={estimatedBytes}
+                isEstimating={isEstimating}
+                previewUrl={previewUrl}
+                onFormat={(format: ExportFormat) => apply({ type: 'SET_FORMAT', format })}
+                onQuality={(value) => apply({ type: 'SET_QUALITY', value })}
+                onOutWidth={(value) => apply({ type: 'SET_OUT_WIDTH', value })}
+                onMatte={(value) => apply({ type: 'SET_MATTE', value })}
+                onDownload={() => void handleDownload()}
+              />
+            </div>
           </div>
-
-          <ExportPanel
-            format={state.format}
-            quality={state.quality}
-            outWidth={state.outWidth}
-            outHeight={outHeight}
-            matte={state.matte}
-            estimatedBytes={estimatedBytes}
-            isEstimating={isEstimating}
-            previewUrl={previewUrl}
-            onFormat={(format: ExportFormat) => apply({ type: 'SET_FORMAT', format })}
-            onQuality={(value) => apply({ type: 'SET_QUALITY', value })}
-            onOutWidth={(value) => apply({ type: 'SET_OUT_WIDTH', value })}
-            onMatte={(value) => apply({ type: 'SET_MATTE', value })}
-            onDownload={() => void handleDownload()}
-          />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

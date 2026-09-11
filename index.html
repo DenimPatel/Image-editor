@@ -8,6 +8,37 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Interactive Image Editor</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Apply any stored theme preference before first paint to avoid a
+      // flash of the wrong theme; falls back silently if storage is blocked.
+      (function () {
+        try {
+          var t = localStorage.getItem('image-editor-theme');
+          if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
+    <script>
+      // GitHub Pages has no server-side rewrites, so a deep link/refresh to
+      // e.g. /Image-editor/editor/crop 404s. public/404.html re-encodes the
+      // path into a query string and redirects here; decode it back into the
+      // real URL before the router mounts. See rafgraph/spa-github-pages.
+      (function () {
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          history.replaceState(null, '', redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
