@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Dropzone } from '../components/Dropzone';
+import { SamplePicker } from '../components/SamplePicker';
 import { Toolbar } from '../components/Toolbar';
 import { Adjustments } from '../components/Adjustments';
 import { CropStage } from '../components/CropStage';
@@ -9,7 +10,7 @@ import { Nav } from '../components/ui/Nav';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ToolRail, type ToolSection } from '../components/ui/ToolRail';
-import { decodeImageFile } from '../lib/decode';
+import { decodeImageFile, decodeImageUrl } from '../lib/decode';
 import { computeOutputHeight, renderFinal, renderTransformed } from '../lib/render';
 import { downloadBlob, encodeCanvas, extensionFor } from '../lib/encode';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -67,6 +68,18 @@ export default function Editor() {
       dispatch({ type: 'APPLY', action: { type: 'RESET' } });
     } catch {
       setError('Could not read that file as an image.');
+    }
+  }, []);
+
+  const handleSampleSelect = useCallback(async (url: string, label: string) => {
+    setError(null);
+    try {
+      const decoded = await decodeImageUrl(url);
+      setBitmap(decoded);
+      setFileName(label);
+      dispatch({ type: 'APPLY', action: { type: 'RESET' } });
+    } catch {
+      setError('Could not load that sample image.');
     }
   }, []);
 
@@ -189,7 +202,12 @@ export default function Editor() {
       <Nav variant="editor" />
 
       <div className="wrap editor-wrap">
-        {!bitmap && <Dropzone onFile={handleFile} />}
+        {!bitmap && (
+          <>
+            <Dropzone onFile={handleFile} />
+            <SamplePicker onSelect={handleSampleSelect} />
+          </>
+        )}
         {error && <p className="app__error">{error}</p>}
 
         {bitmap && transformedUrl && (

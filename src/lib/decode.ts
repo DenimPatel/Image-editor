@@ -6,3 +6,12 @@
 export async function decodeImageFile(file: File): Promise<ImageBitmap> {
   return createImageBitmap(file, { imageOrientation: 'from-image' });
 }
+
+/**
+ * Decode an image served from a static URL (e.g. a bundled sample image)
+ * into the same ImageBitmap shape as decodeImageFile.
+ */
+export async function decodeImageUrl(url: string): Promise<ImageBitmap> {
+  const blob = await fetch(url).then((response) => response.blob());
+  return createImageBitmap(blob, { imageOrientation: 'from-image' });
+}
