@@ -53,6 +53,20 @@ export default function Editor() {
     if (tool && VALID_TOOLS.has(tool)) useUiStore.getState().setActiveTool(tool as ToolId);
   }, [tool]);
 
+  // Tools like background removal replace doc.source.assetId with a new
+  // asset (e.g. the matted cutout) rather than mutating the original bitmap
+  // in place. Keep the render/export source in step with that, since
+  // EditorCanvas and renderExportCanvas render this state, not the doc.
+  useEffect(() => {
+    const assetId = useDocStore.getState().present.source?.assetId;
+    if (!assetId) return;
+    const asset = assetStore.get(assetId);
+    // Syncing local state to an external store (assetStore) keyed by a doc
+    // field, not derivable during render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (asset && asset !== source) setSource(asset as ImageBitmap);
+  }, [revision, source]);
+
   useEffect(() => {
     scheduleOldCacheCleanup();
     void loadSession().then((session) => {

@@ -20,18 +20,21 @@ export type ModelInfo = {
   bytes: number;
 };
 
+// The imgly CDN serves each model as several chunks (encoder/decoder stages,
+// not just the single isnet_*.onnx file), so these totals are measured from
+// the actual manifest download, not the raw .onnx file size.
 export const MODELS: Record<ModelKind, ModelInfo> = {
   'matting-quint8': {
     kind: 'matting-quint8',
-    label: 'Background removal (fast, ~11 MB)',
+    label: 'Background removal (fast, ~42 MB)',
     url: '',
-    bytes: 11 * 1024 * 1024,
+    bytes: 42 * 1024 * 1024,
   },
   'matting-fp16': {
     kind: 'matting-fp16',
-    label: 'Background removal (best quality, ~44 MB)',
+    label: 'Background removal (best quality, ~84 MB)',
     url: '',
-    bytes: 44 * 1024 * 1024,
+    bytes: 84 * 1024 * 1024,
   },
   'face-landmarker': {
     kind: 'face-landmarker',
