@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { removeBackground, type MattingQuality } from '../../features/ml/matting';
-import { MODELS, ModelUnavailableError, isModelCached } from '../../features/ml/ModelLoader';
+import { isMattingReady, removeBackground, type MattingQuality } from '../../features/ml/matting';
+import { MODELS, ModelUnavailableError } from '../../features/ml/ModelLoader';
 import { assetStore } from '../../model/assetsSingleton';
 import { convertBytes } from '../../lib/format';
 import type { Doc } from '../../model/types';
@@ -50,7 +50,7 @@ export function BackgroundPanel({ source }: { source: ImageBitmap | null }) {
     } else if (result.status === 'error') {
       const message =
         result.error instanceof ModelUnavailableError
-          ? 'Background model not bundled — run npm run models:fetch, or repair the matte manually.'
+          ? "Couldn't download the background model — check your connection and try again, or set a background manually."
           : 'Background removal failed.';
       pushToast(message, 'error');
     }
@@ -93,8 +93,8 @@ export function BackgroundPanel({ source }: { source: ImageBitmap | null }) {
         onChange={(next) => setQuality(next)}
       />
       <p className={styles.hint}>
-        {model.label} — about {convertBytes(model.bytes)}
-        {isModelCached(quality === 'best' ? 'matting-fp16' : 'matting-quint8') ? ' (cached)' : ''}
+        {model.label} — about {convertBytes(model.bytes)} downloaded on first use
+        {isMattingReady(quality) ? ' (cached)' : ''}
       </p>
       <div className={styles.buttonRow}>
         {!running ? (

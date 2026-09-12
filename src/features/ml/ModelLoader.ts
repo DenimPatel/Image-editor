@@ -13,6 +13,9 @@ export type ModelKind = 'matting-quint8' | 'matting-fp16' | 'face-landmarker';
 export type ModelInfo = {
   kind: ModelKind;
   label: string;
+  // Empty for the matting kinds: @imgly/background-removal fetches its own
+  // weights from its CDN (see src/features/ml/matting.ts), not from
+  // public/models/, so ensureModel() is never called for these kinds.
   url: string;
   bytes: number;
 };
@@ -21,13 +24,13 @@ export const MODELS: Record<ModelKind, ModelInfo> = {
   'matting-quint8': {
     kind: 'matting-quint8',
     label: 'Background removal (fast, ~11 MB)',
-    url: `${import.meta.env.BASE_URL}models/isnet_quint8.onnx`,
+    url: '',
     bytes: 11 * 1024 * 1024,
   },
   'matting-fp16': {
     kind: 'matting-fp16',
     label: 'Background removal (best quality, ~44 MB)',
-    url: `${import.meta.env.BASE_URL}models/isnet_fp16.onnx`,
+    url: '',
     bytes: 44 * 1024 * 1024,
   },
   'face-landmarker': {
@@ -41,9 +44,7 @@ export const MODELS: Record<ModelKind, ModelInfo> = {
 export class ModelUnavailableError extends Error {
   readonly reason: unknown;
   constructor(kind: ModelKind, cause?: unknown) {
-    super(
-      `Model “${MODELS[kind].label}” is not available. Run \`npm run models:fetch\` before building to self-host it.`,
-    );
+    super(`Model “${MODELS[kind].label}” is not available.`);
     this.name = 'ModelUnavailableError';
     this.reason = cause;
   }
