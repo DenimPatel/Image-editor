@@ -4,27 +4,42 @@
 
 [![Deploy to GitHub Pages](https://github.com/DenimPatel/Image-editor/actions/workflows/deploy.yml/badge.svg)](https://github.com/DenimPatel/Image-editor/actions/workflows/deploy.yml)
 
-A fast, free, entirely client-side image editor. Drop in a photo, adjust it, crop it, and
-export — all in the browser, no server or upload involved.
+A fast, free, entirely client-side photo editor with an iOS-Photos-style, canvas-first
+interface. Everything runs on your device: no uploads, no accounts, and no server.
 
 ![Interactive Image Editor screenshot](image.png)
 
-## 📸 Features
+## ✨ What it can do
 
-- **Upload**: drag-and-drop, click-to-browse, or paste an image straight from the clipboard
-  (JPEG, PNG, JPG).
-- **EXIF-correct orientation**: phone photos load upright automatically.
-- **Flip & rotate**: horizontal/vertical flip, 90° CW/CCW, and a free custom-angle slider.
-- **Adjustments**: brightness, contrast, and saturation, each reset with a double-click.
-- **Crop**: draggable crop box with 1:1 / 4:3 / 3:2 / 16:9 presets, a free mode, or a
-  validated custom `W:H` ratio field.
-- **Rule-of-thirds grid**: an overlay toggle that helps compose the shot — it's never baked
-  into the exported file.
-- **Export**: JPEG, PNG, WebP, or PDF, with a width selector, a quality slider, and a matte
-  color for flattening transparency or filling rotated corners. PNG/WebP keep source alpha.
-- **Live output size estimate**, computed from the real encoded file.
-- **Undo / redo / reset**, with `⌘/Ctrl+Z`, `⇧⌘/Ctrl+Z`, and keyboard shortcuts for rotate
-  (`[` `]`), flip (`f`), grid (`g`), and download (`⌘/Ctrl+S`).
+- **Non-destructive document model.** Flip/rotate, straighten, crop, colour, curves, looks,
+  layers and local adjustments are all stored as data and re-rendered on demand, so undo/redo
+  and IndexedDB sessions are exact. Rotating or flipping keeps your crop instead of discarding it.
+- **WebGL2 render pipeline** with a Canvas2D fallback. Orientation, perspective, straighten and
+  crop collapse into one resample; preview renders from a viewport-sized proxy so a 48 MP photo
+  costs the same as a 2 MP one.
+- **Crop & straighten** with corner handles, pinch-zoom/pan, a ±45° dial with auto-zoom, safe-area
+  guides for Story/Reel/YouTube, and a full preset catalogue: ratios, Instagram/TikTok/LinkedIn/X/
+  Facebook/YouTube/Pinterest sizes, and print sizes (4×6, 5×7, 8×10, A4, A5 at your chosen DPI).
+- **15 adjustments** — exposure, brilliance, highlights, shadows, contrast, brightness, black
+  point, saturation, vibrance, warmth, tint, sharpness, definition, noise reduction and vignette —
+  plus a live histogram, an **Auto** button driven by a real luminance histogram, a **curves**
+  editor (monotone spline → 256-LUT) and 8-band **HSL colour mix**.
+- **Looks/filters**: ~24 LUT presets in film families with a strength slider (LUT assets are
+  fetched lazily from `public/luts/`).
+- **Layers**: text with self-hosted fonts, shapes, stickers, vector drawing, redaction
+  (baked into the exported pixels), watermarks and frames. Layers live in cropped-output space,
+  so they survive a re-crop.
+- **Background removal** via a self-hosted ISNet matting model, with solid/gradient replacement
+  and a keep-transparent PNG mode. Weights are downloaded on demand, never bundled blindly.
+- **Passport photos**: US 2×2, India, UK, Schengen, Canada, Australia, China, Japan, US visa, OCI
+  and generic 35×45 specs, with a compliance checklist (head height, eye line, centring,
+  background uniformity and effective DPI) and a printable sheet at exact physical page size.
+- **Export**: JPEG, PNG, WebP, AVIF (feature-probed) and PDF; quality with a live size readout and
+  a **“fit under N KB”** binary search; metadata strip/keep-orientation/keep-all; real DPI written
+  into the file (JFIF density, PNG `pHYs`); share, copy-to-clipboard and multi-size zip.
+- **iOS-like shell**: a full-bleed canvas, a scrollable tool tab bar, parameter rings with progress
+  dials, a bottom sheet on mobile that becomes a right-hand inspector on desktop, press-and-hold to
+  compare the original, and keyboard shortcuts (`?` shows them all).
 
 ## 🌟 Getting started
 
@@ -38,48 +53,71 @@ export — all in the browser, no server or upload involved.
 git clone https://github.com/DenimPatel/Image-editor.git
 cd Image-editor
 npm install
-```
-
-### Run locally
-
-```bash
 npm run dev
 ```
 
-### Build for production
+Then open the printed local URL and add `#/` … or just visit `/editor`.
+
+### Optional ML weights and LUTs
+
+The AI background-removal and face-landmark weights are **not committed** (they would bloat the
+repo and GitHub Pages must not serve Git LFS pointers). They are pinned in `models.lock.json` and
+downloaded into gitignored `public/models/`:
 
 ```bash
-npm run build
-npm run preview   # serve the built dist/ output locally
+npm run models:fetch        # no-op when already present
+REQUIRE_MODELS=1 npm run build   # fail the build if weights are missing
 ```
 
-### Other scripts
+Until they are fetched, the background-removal button degrades to a clear message and the manual
+fallback. LUT look PNGs are read lazily from `public/luts/`.
+
+### Scripts
 
 ```bash
+npm run dev         # Vite dev server
+npm run build       # tsc -b + production build
 npm run lint        # ESLint
-npm run typecheck   # tsc --noEmit
-npm test            # Vitest
-npm run format      # Prettier
+npm run typecheck   # TypeScript project build
+npm test            # Vitest (pure/unit tests, jsdom)
+npm run models:fetch
 ```
 
-## 🚀 Usage
+## 🏗️ Architecture
 
-1. **Upload an image** — drag it in, click to browse, or paste from the clipboard.
-2. **Edit** — flip, rotate, adjust brightness/contrast/saturation, and crop to the aspect
-   ratio you need.
-3. **Export** — pick a format and width, then download.
+| Area | Location | Notes |
+| --- | --- | --- |
+| Document model | `src/model/` | JSON-serializable `Doc` (schema 3); assets referenced by id only |
+| State | `src/store/` | zustand + a pure history engine with drag coalescing |
+| WebGL2 | `src/gl/` | capabilities, passes, shaders, tiling, renderer |
+| Fallback | `src/render/fallback2d.ts` | Canvas2D backend behind the same interface |
+| Features | `src/features/` | crop presets, layers, ML, passport, export |
+| UI | `src/components/` | canvas, controls, editor shell, tool panels |
 
-## 🏗️ How it's built
+The one rule that keeps everything simple: a `Doc` never contains an `ImageBitmap`, `Blob` or
+canvas — only string asset ids into `AssetStore`. History, persistence, context-loss recovery and
+copy/paste-edits all fall out of that.
 
-This app is a static React + TypeScript site built with Vite, deployed to GitHub Pages via
-GitHub Actions. Every editing operation runs on an HTML `<canvas>` in the browser — nothing is
-ever uploaded anywhere. See [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) for
-the deployment pipeline.
+## 🧪 Testing
 
-> An earlier version of this project was a Python/Streamlit app that ran the same editing
-> operations server-side. It has been retired in favor of this client-side rewrite, which
-> deploys for free on GitHub Pages; the old implementation still lives in git history.
+`npm test` runs fast, jsdom-only unit tests over every decision that can be made pure: crop
+geometry, sizing, history coalescing, curves/HSL/auto, pass planning and tiling, passport framing/
+compliance/sheets, DPI/EXIF byte surgery, target-bytes search, layer z-order, and the model loader.
+Shader correctness on real GPUs is exercised separately (see below).
 
-## 🤝 Contributing
+## 🚧 Non-goals
 
-Issues and pull requests are welcome!
+Batch processing of many files at once is explicitly out of scope — it needs a different app shell.
+“Copy edits / paste edits” plus multi-size export cover most of that need. Also out of scope: ML
+super-resolution, HEIC decode, RAW, video and generative fill.
+
+## 🗺️ Roadmap
+
+- Playwright smoke suite (Chromium + WebKit, forced WebGL context loss, golden shader pixels).
+- Face-landmark-driven portrait retouch (smoothing, healing, whitening, red-eye) on top of the
+  existing local-adjustment masks.
+- Manual matte-repair brush for background edges.
+
+## License
+
+See [LICENSE](LICENSE).

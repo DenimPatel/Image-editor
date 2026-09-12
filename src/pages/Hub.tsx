@@ -4,6 +4,7 @@ import { Nav } from '../components/ui/Nav';
 import { Button } from '../components/ui/Button';
 import { IconTile } from '../components/ui/IconTile';
 import { AdjustIcon, ArrowRightIcon, CropIcon, ExportIcon, RotateIcon, WorkspaceIcon } from '../components/ui/icons';
+import { BackgroundGlyph, LayersGlyph, PassportGlyph } from '../components/ui/editorIcons';
 
 type Tool = {
   to: string;
@@ -35,8 +36,26 @@ const TOOLS: Tool[] = [
   {
     to: '/editor/export',
     title: 'Resize & Export',
-    copy: 'Export as JPEG, PNG, WebP, or PDF at any width and quality.',
+    copy: 'Export as JPEG, PNG, WebP, AVIF or PDF at any size, DPI and quality.',
     Icon: ExportIcon,
+  },
+  {
+    to: '/editor/passport',
+    title: 'Passport Photos',
+    copy: 'US, UK, Schengen and more — auto-framed, compliance-checked, printable sheets.',
+    Icon: PassportGlyph,
+  },
+  {
+    to: '/editor/background',
+    title: 'Remove Background',
+    copy: 'Cut out the subject and replace it with a colour, gradient or transparency.',
+    Icon: BackgroundGlyph,
+  },
+  {
+    to: '/editor/layers',
+    title: 'Text & Layers',
+    copy: 'Add text, stickers, drawings, redactions, watermarks and frames.',
+    Icon: LayersGlyph,
   },
   {
     to: '/editor',

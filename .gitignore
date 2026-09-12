@@ -16,3 +16,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Self-hosted ML weights and LUTs (fetched, never committed; see models.lock.json)
+public/models/
+public/luts/
+public/fonts/

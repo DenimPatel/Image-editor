@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "note": "Pinned self-hosted ML weights. sha256 null means 'verify size only' until the hash is recorded; set it after the first verified download. Never use Git LFS: GitHub Pages does not reliably serve LFS pointers.",
+  "models": [
+    {
+      "kind": "matting-quint8",
+      "target": "public/models/isnet_quint8.onnx",
+      "url": "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/isnet_quint8.onnx",
+      "bytes": 11534336,
+      "sha256": null
+    },
+    {
+      "kind": "matting-fp16",
+      "target": "public/models/isnet_fp16.onnx",
+      "url": "https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/isnet_fp16.onnx",
+      "bytes": 46137344,
+      "sha256": null
+    },
+    {
+      "kind": "face-landmarker",
+      "target": "public/models/face_landmarker.task",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "bytes": 3879731,
+      "sha256": null
+    }
+  ]
+}
