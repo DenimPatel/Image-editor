@@ -361,6 +361,14 @@ export function drawLayers(ctx: CanvasRenderingContext2D, doc: Doc, options: Com
       ctx.restore();
       continue;
     }
+    if (layer.kind === 'draw') {
+      // Stroke points are stored as absolute canvas-normalized coordinates
+      // (not relative to the layer's transform origin), so draw layers skip
+      // applyTransform entirely.
+      drawDrawLayer(ctx, layer, size);
+      ctx.restore();
+      continue;
+    }
     applyTransform(ctx, layer.transform, size);
     switch (layer.kind) {
       case 'text':
@@ -368,9 +376,6 @@ export function drawLayers(ctx: CanvasRenderingContext2D, doc: Doc, options: Com
         break;
       case 'shape':
         drawShapeLayer(ctx, layer, size);
-        break;
-      case 'draw':
-        drawDrawLayer(ctx, layer, size);
         break;
       case 'sticker': {
         const svg = layer.svg;
