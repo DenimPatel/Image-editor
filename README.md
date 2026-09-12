@@ -29,8 +29,9 @@ interface. Everything runs on your device: no uploads, no accounts, and no serve
 - **Layers**: text with self-hosted fonts, shapes, stickers, vector drawing, redaction
   (baked into the exported pixels), watermarks and frames. Layers live in cropped-output space,
   so they survive a re-crop.
-- **Background removal** via a self-hosted ISNet matting model, with solid/gradient replacement
-  and a keep-transparent PNG mode. Weights are downloaded on demand, never bundled blindly.
+- **Background removal** via `@imgly/background-removal`'s ISNet matting model, with
+  solid/gradient replacement and a keep-transparent PNG mode. Weights stream from imgly's CDN
+  on first use and are cached by the browser afterwards.
 - **Passport photos**: US 2×2, India, UK, Schengen, Canada, Australia, China, Japan, US visa, OCI
   and generic 35×45 specs, with a compliance checklist (head height, eye line, centring,
   background uniformity and effective DPI) and a printable sheet at exact physical page size.
@@ -60,17 +61,21 @@ Then open the printed local URL and add `#/` … or just visit `/editor`.
 
 ### Optional ML weights and LUTs
 
-The AI background-removal and face-landmark weights are **not committed** (they would bloat the
-repo and GitHub Pages must not serve Git LFS pointers). They are pinned in `models.lock.json` and
-downloaded into gitignored `public/models/`:
+`npm run models:fetch` only covers the face-landmark model: its weights are **not committed**
+(they would bloat the repo and GitHub Pages must not serve Git LFS pointers), so they're pinned
+in `models.lock.json` and downloaded into gitignored `public/models/`:
 
 ```bash
 npm run models:fetch        # no-op when already present
 REQUIRE_MODELS=1 npm run build   # fail the build if weights are missing
 ```
 
-Until they are fetched, the background-removal button degrades to a clear message and the manual
-fallback. LUT look PNGs are read lazily from `public/luts/`.
+Background removal is unrelated to this script: `@imgly/background-removal` is a real
+dependency that fetches its own weights and onnxruntime-web wasm from its CDN
+(`staticimgly.com`) the first time the feature runs, and the browser caches them after that. If
+the download fails (offline, or the CDN is blocked), the button shows a clear error and the
+manual background-replacement/repair-brush fallback still works. LUT look PNGs are read lazily
+from `public/luts/`.
 
 ### Scripts
 
