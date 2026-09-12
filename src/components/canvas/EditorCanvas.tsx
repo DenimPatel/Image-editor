@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { createDrawLayer } from '../../features/layers/factory';
 import { useRenderLoop } from '../../hooks/useRenderLoop';
 import type { DrawLayer } from '../../model/types';
-import { addLayerToDoc } from '../../store/actions';
+import { addLayerToDoc, updateLayerPatch } from '../../store/actions';
 import { getDoc, useDocStore } from '../../store/docStore';
 import { useUiStore } from '../../store/uiStore';
 import { CompareBadge } from './CompareBadge';
@@ -12,6 +12,8 @@ import styles from './canvas.module.css';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 8;
+
+const MOVABLE_LAYER_KINDS = new Set(['sticker', 'text', 'shape', 'watermark', 'frame']);
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -25,6 +27,8 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
   const setViewport = useUiStore((state) => state.setViewport);
   const holdTimer = useRef<number | null>(null);
   const drawLayerId = useRef<string | null>(null);
+  const movingLayerId = useRef<string | null>(null);
+  const moveGrabOffset = useRef<{ dx: number; dy: number } | null>(null);
 
   const pointFromEvent = useCallback(
     (clientX: number, clientY: number) => {
@@ -41,7 +45,20 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
   const bind = useGesture(
     {
       onDragStart: ({ event }) => {
-        if (activeTool !== 'draw') return;
+        if (activeTool !== 'draw') {
+          const doc = getDoc();
+          const selectedId = useUiStore.getState().selectedLayerId;
+          const layer = doc.layers.find((candidate) => candidate.id === selectedId);
+          if (layer && MOVABLE_LAYER_KINDS.has(layer.kind)) {
+            const point = pointFromEvent((event as PointerEvent).clientX, (event as PointerEvent).clientY);
+            if (point) {
+              movingLayerId.current = layer.id;
+              moveGrabOffset.current = { dx: point.x - layer.transform.x, dy: point.y - layer.transform.y };
+              useDocStore.getState().beginInteraction('move-layer');
+            }
+          }
+          return;
+        }
         const doc = getDoc();
         const selectedId = useUiStore.getState().selectedLayerId;
         let layer =
@@ -87,12 +104,31 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
           }));
           return;
         }
+        if (movingLayerId.current && moveGrabOffset.current) {
+          const point = pointFromEvent((event as PointerEvent).clientX, (event as PointerEvent).clientY);
+          if (!point) return;
+          const { dx, dy } = moveGrabOffset.current;
+          const id = movingLayerId.current;
+          updateLayerPatch(id, {
+            transform: {
+              ...getDoc().layers.find((candidate) => candidate.id === id)?.transform,
+              x: clamp(point.x - dx, 0, 1),
+              y: clamp(point.y - dy, 0, 1),
+            },
+          });
+          return;
+        }
         setViewport({ x, y });
       },
       onDragEnd: () => {
         if (activeTool === 'draw') {
           useDocStore.getState().endInteraction();
           drawLayerId.current = null;
+        }
+        if (movingLayerId.current) {
+          useDocStore.getState().endInteraction();
+          movingLayerId.current = null;
+          moveGrabOffset.current = null;
         }
       },
       onPinch: ({ offset: [scale] }) => {
@@ -139,14 +175,25 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
 
   useEffect(() => cancelHold, [cancelHold]);
 
+  const gesture = bind();
+
   return (
     <div className={styles.canvas} ref={containerRef}>
       <div
         className={styles.gestureLayer}
-        {...bind()}
-        onPointerDown={startHold}
-        onPointerUp={cancelHold}
-        onPointerCancel={cancelHold}
+        {...gesture}
+        onPointerDown={(event) => {
+          gesture.onPointerDown?.(event);
+          startHold();
+        }}
+        onPointerUp={(event) => {
+          gesture.onPointerUp?.(event);
+          cancelHold();
+        }}
+        onPointerCancel={(event) => {
+          gesture.onPointerCancel?.(event);
+          cancelHold();
+        }}
         onPointerLeave={cancelHold}
         onDoubleClick={() => useUiStore.getState().resetViewport()}
       />
