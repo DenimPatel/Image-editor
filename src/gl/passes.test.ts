@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDoc, IDENTITY_CURVES, NEUTRAL_HSL } from '../model/defaults';
 import type { Doc } from '../model/types';
 import { IDENTITY_MAT3 } from './geometry';
-import { planHash, planPasses, type Pass } from './passes';
+import { planHash, planPasses, withLeadingGeometry, type Pass } from './passes';
 
 const size = { width: 100, height: 100 };
 
@@ -111,8 +111,24 @@ describe('planPasses', () => {
   });
 });
 
-describe('planHash', () => {
-  it('is stable for identical plans', () => {
+describe('withLeadingGeometry', () => {
+  it('prepends a clamping geometry pass when none exists', () => {
+    const passes = planPasses(doc(), size);
+    const result = withLeadingGeometry(passes, IDENTITY_MAT3);
+    expect(result[0]).toMatchObject({ kind: 'geometry', clamp: true });
+    expect(result).toHaveLength(passes.length + 1);
+  });
+
+  it('does not duplicate an existing geometry pass', () => {
+    const d = doc();
+    d.geometry.crop = { x: 0.1, y: 0, width: 0.5, height: 1 };
+    const passes = planPasses(d, size, IDENTITY_MAT3);
+    expect(passes[0]?.kind).toBe('geometry');
+    expect(withLeadingGeometry(passes, IDENTITY_MAT3)).toBe(passes);
+  });
+});
+
+describe('planHash', () => {  it('is stable for identical plans', () => {
     const a = planPasses(doc(), size);
     const b = planPasses(doc(), size);
     expect(planHash(a)).toBe(planHash(b));

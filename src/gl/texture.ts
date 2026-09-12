@@ -12,7 +12,7 @@ export function createTexture(
   const texture = gl.createTexture();
   if (!texture) throw new Error('Unable to create texture');
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, options.flipY ?? true);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, options.flipY ?? false);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   const filter = options.linear === false ? gl.NEAREST : gl.LINEAR;
