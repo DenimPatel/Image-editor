@@ -27,15 +27,19 @@ export const GEOMETRY_FRAG = `${HEADER}
 uniform mat3 u_matrix;
 uniform vec2 u_sourceSize;
 uniform vec2 u_outputSize;
+uniform int u_clamp;
 void main() {
   vec2 outPos = vec2(gl_FragCoord.x, u_outputSize.y - gl_FragCoord.y);
   vec3 src = u_matrix * vec3(outPos, 1.0);
   vec2 uv = src.xy / src.z / u_sourceSize;
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+  if (u_clamp == 1) {
+    uv = clamp(uv, 0.0, 1.0);
+  } else if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
     outColor = vec4(0.0);
     return;
   }
-  outColor = texture(u_tex, vec2(uv.x, 1.0 - uv.y));
+  // Source is uploaded top-down (flip-Y disabled), so uv already runs top-down.
+  outColor = texture(u_tex, uv);
 }`;
 
 export const TONE_FRAG = `${HEADER}

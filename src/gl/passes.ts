@@ -26,7 +26,7 @@ export type ColorPass = {
   tint: number;
 };
 
-export type GeometryPass = { kind: 'geometry'; matrix: Mat3 };
+export type GeometryPass = { kind: 'geometry'; matrix: Mat3; clamp?: boolean };
 
 export type CurvesPass = { kind: 'curves'; curves: Curves };
 export type HslPass = { kind: 'hsl'; mix: HslMix };
@@ -229,9 +229,22 @@ export function planPasses(doc: Doc, size: Size, geometryMatrix?: Mat3): Pass[] 
   return passes;
 }
 
+/**
+ * Guarantee the render plan starts with a geometry pass.
+ *
+ * The source texture is uploaded without `UNPACK_FLIP_Y_WEBGL` (Safari and
+ * some Chrome builds ignore that flag for `ImageBitmap`), so its rows run
+ * top-down while framebuffer textures run bottom-up. Resampling the source
+ * once into the framebuffer pipeline — even for a "no-op" edit — keeps every
+ * later pass on one consistent axis and fixes the upside-down preview.
+ */
+export function withLeadingGeometry(passes: Pass[], matrix: Mat3): Pass[] {
+  if (passes.some((pass) => pass.kind === 'geometry')) return passes;
+  return [{ kind: 'geometry', matrix, clamp: true }, ...passes];
+}
+
 /** Stable hash of a plan, used to skip redundant re-renders. */
-export function planHash(passes: Pass[]): string {
-  return passes
+export function planHash(passes: Pass[]): string {  return passes
     .map((pass) => {
       switch (pass.kind) {
         case 'geometry':

@@ -5,7 +5,7 @@ import { attachContextLossHandlers, getWebgl2 } from './context';
 import { FboPool, type Fbo } from './framebuffer';
 import { computeOutputToSource } from './geometry';
 import { getLut, loadLut, LUT_SIZE } from './luts';
-import { planHash, planPasses, type Pass } from './passes';
+import { planHash, planPasses, withLeadingGeometry, type Pass } from './passes';
 import { ProgramCache } from './program';
 import { createQuad, drawQuad } from './quad';
 import * as S from './shaders/index';
@@ -103,7 +103,9 @@ export class GlRenderer implements RenderBackend {
 
     this.ensureSourceTexture(source, sourceSize);
     const matrix = computeOutputToSource(doc, sourceSize, size);
-    const passes = planPasses(doc, size, matrix);
+    // Always resample the source through the framebuffer pipeline so source
+    // and framebuffer textures share one orientation (see withLeadingGeometry).
+    const passes = withLeadingGeometry(planPasses(doc, size, matrix), matrix);
 
     const ping = this.pool.acquire(size.width, size.height);
     const pong = this.pool.acquire(size.width, size.height);
@@ -142,12 +144,12 @@ export class GlRenderer implements RenderBackend {
     if (this.sourceTexture && this.sourceKey === key) {
       // Same dimensions can still be a new bitmap after undo/replacement.
       gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
       return;
     }
     if (this.sourceTexture) disposeTexture(gl, this.sourceTexture);
-    this.sourceTexture = createTexture(gl, source, { flipY: true, linear: true, clamp: true });
+    this.sourceTexture = createTexture(gl, source, { flipY: false, linear: true, clamp: true });
     this.sourceKey = key;
   }
 
@@ -176,6 +178,7 @@ export class GlRenderer implements RenderBackend {
         setMat3(gl, program, 'u_matrix', pass.matrix);
         setVec2(gl, program, 'u_sourceSize', inputSize.width, inputSize.height);
         setVec2(gl, program, 'u_outputSize', size.width, size.height);
+        setInt(gl, program, 'u_clamp', pass.clamp ? 1 : 0);
         break;
       case 'tone':
         setFloat(gl, program, 'u_exposure', pass.exposure);
