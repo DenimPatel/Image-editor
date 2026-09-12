@@ -6,6 +6,7 @@ import type { DrawLayer } from '../../model/types';
 import { addLayerToDoc, updateLayerPatch } from '../../store/actions';
 import { getDoc, useDocStore } from '../../store/docStore';
 import { useUiStore } from '../../store/uiStore';
+import { CompareGlyph } from '../ui/editorIcons';
 import { CompareBadge } from './CompareBadge';
 import { CropOverlay } from './CropOverlay';
 import styles from './canvas.module.css';
@@ -25,7 +26,6 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
   const activeTool = useUiStore((state) => state.activeTool);
   const compareHeld = useUiStore((state) => state.compareHeld);
   const setViewport = useUiStore((state) => state.setViewport);
-  const holdTimer = useRef<number | null>(null);
   const drawLayerId = useRef<string | null>(null);
   const movingLayerId = useRef<string | null>(null);
   const moveGrabOffset = useRef<{ dx: number; dy: number } | null>(null);
@@ -157,47 +157,23 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
     },
   );
 
-  const cancelHold = useCallback(() => {
-    if (holdTimer.current !== null) {
-      window.clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
-    useUiStore.getState().setCompareHeld(false);
-  }, []);
-
-  const startHold = useCallback(() => {
-    if (holdTimer.current !== null) return;
-    holdTimer.current = window.setTimeout(() => {
-      holdTimer.current = null;
-      useUiStore.getState().setCompareHeld(true);
-    }, 260);
-  }, []);
-
-  useEffect(() => cancelHold, [cancelHold]);
+  useEffect(() => () => useUiStore.getState().setCompareHeld(false), []);
 
   const gesture = bind();
 
   return (
     <div className={styles.canvas} ref={containerRef}>
-      <div
-        className={styles.gestureLayer}
-        {...gesture}
-        onPointerDown={(event) => {
-          gesture.onPointerDown?.(event);
-          startHold();
-        }}
-        onPointerUp={(event) => {
-          gesture.onPointerUp?.(event);
-          cancelHold();
-        }}
-        onPointerCancel={(event) => {
-          gesture.onPointerCancel?.(event);
-          cancelHold();
-        }}
-        onPointerLeave={cancelHold}
-        onDoubleClick={() => useUiStore.getState().resetViewport()}
-      />
+      <div className={styles.gestureLayer} {...gesture} onDoubleClick={() => useUiStore.getState().resetViewport()} />
       {activeTool === 'crop' && <CropOverlay />}
+      <button
+        type="button"
+        className={styles.compareToggle}
+        aria-pressed={compareHeld}
+        onClick={() => useUiStore.getState().setCompareHeld(!compareHeld)}
+      >
+        <CompareGlyph />
+        {compareHeld ? 'Editing' : 'Compare'}
+      </button>
       {compareHeld && <CompareBadge />}
     </div>
   );
