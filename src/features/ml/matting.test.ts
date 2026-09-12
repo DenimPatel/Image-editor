@@ -69,4 +69,14 @@ describe('removeBackground', () => {
     expect(error).toBeInstanceOf(DOMException);
     expect((error as DOMException).name).toBe('AbortError');
   });
+
+  it('forwards the abort signal to the underlying chunk fetches', async () => {
+    removeBackgroundMock.mockResolvedValue(new Blob());
+    const controller = new AbortController();
+    await removeBackground(fakeBitmap, { quality: 'fast', signal: controller.signal });
+    expect(removeBackgroundMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fetchArgs: { signal: controller.signal } }),
+    );
+  });
 });

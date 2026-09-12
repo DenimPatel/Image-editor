@@ -41,6 +41,7 @@ type RemoveBackgroundFn = (
     model?: MattingModelId;
     output?: { format?: string };
     progress?: (key: string, current: number, total: number) => void;
+    fetchArgs?: RequestInit;
   },
 ) => Promise<Blob>;
 
@@ -68,6 +69,9 @@ export async function removeBackground(
       model: modelFor(options.quality),
       output: { format: 'image/png' },
       progress: (_key, current, total) => options.onProgress?.(total > 0 ? current / total : 0),
+      // Forwarded to every model-chunk fetch, so Cancel actually aborts an
+      // in-flight download instead of only being noticed after it resolves.
+      fetchArgs: options.signal ? { signal: options.signal } : undefined,
     });
     if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     const bitmap = await createImageBitmap(resultBlob);
