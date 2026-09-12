@@ -1,0 +1,302 @@
+.editor {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ie-canvas-bg);
+  color: var(--ie-ink);
+  z-index: 30;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: calc(52px + var(--ie-safe-top));
+  padding: var(--ie-safe-top) calc(8px + var(--ie-safe-right)) 0 calc(8px + var(--ie-safe-left));
+  background: var(--ie-chrome);
+  backdrop-filter: blur(var(--ie-chrome-blur));
+  -webkit-backdrop-filter: blur(var(--ie-chrome-blur));
+  border-bottom: 1px solid var(--ie-hairline);
+  z-index: 30;
+}
+.topBarGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.topBarTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ie-ink-soft);
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doneButton {
+  border: none;
+  background: transparent;
+  color: var(--ie-accent-bright);
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  min-height: var(--ie-tap);
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.canvasRegion {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.tabBar {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 6px calc(8px + var(--ie-safe-left)) calc(6px + var(--ie-safe-bottom)) calc(8px + var(--ie-safe-right));
+  background: var(--ie-chrome);
+  backdrop-filter: blur(var(--ie-chrome-blur));
+  -webkit-backdrop-filter: blur(var(--ie-chrome-blur));
+  border-top: 1px solid var(--ie-hairline);
+  scrollbar-width: none;
+  z-index: 30;
+}
+.tabBar::-webkit-scrollbar {
+  display: none;
+}
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 62px;
+  min-height: 52px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--ie-ink-soft);
+  font: inherit;
+  font-size: 10.5px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab svg {
+  width: 22px;
+  height: 22px;
+}
+.tabActive {
+  color: var(--ie-accent-bright);
+  background: rgba(56, 178, 140, 0.14);
+}
+
+.importScreen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: center;
+}
+.importTitle {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+.importDrop {
+  width: min(520px, 100%);
+  border: 2px dashed var(--ie-hairline);
+  border-radius: 18px;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  color: var(--ie-ink-soft);
+}
+.importDropActive {
+  border-color: var(--ie-accent-bright);
+  background: rgba(56, 178, 140, 0.08);
+}
+.importHint {
+  font-size: 13px;
+  color: var(--ie-ink-soft);
+  margin: 0;
+}
+.sampleGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.sampleItem {
+  width: 120px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ie-ink);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.sampleItem img {
+  width: 100%;
+  height: 78px;
+  object-fit: cover;
+  display: block;
+}
+.sampleItem span {
+  display: block;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--ie-ink-soft);
+}
+.primaryButton {
+  border: none;
+  border-radius: 12px;
+  background: var(--ie-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  padding: 12px 22px;
+  min-height: var(--ie-tap);
+  cursor: pointer;
+}
+.errorText {
+  color: #ff6b7a;
+  font-size: 13px;
+}
+
+.jobBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 35;
+  background: rgba(255, 255, 255, 0.1);
+}
+.jobBarFill {
+  height: 100%;
+  background: var(--ie-accent-bright);
+  transition: width 0.2s ease;
+}
+.jobLabel {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.resumeCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(420px, 100%);
+  padding: 12px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+.resumeCard img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.resumeCard p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ie-ink-soft);
+}
+
+.helpOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.helpPanel {
+  background: var(--ie-chrome-solid);
+  border: 1px solid var(--ie-hairline);
+  border-radius: 16px;
+  padding: 20px 24px;
+  max-width: 420px;
+  width: 100%;
+  color: var(--ie-ink);
+}
+.helpPanel h2 {
+  margin: 0 0 10px;
+}
+.helpPanel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.helpPanel dt {
+  font-family: ui-monospace, monospace;
+  color: var(--ie-accent-bright);
+}
+.helpPanel dd {
+  margin: 0;
+  color: var(--ie-ink-soft);
+}
+
+.moreMenu {
+  position: absolute;
+  top: calc(48px + var(--ie-safe-top));
+  right: 8px;
+  z-index: 50;
+  background: var(--ie-chrome-solid);
+  border: 1px solid var(--ie-hairline);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.moreMenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  min-height: 42px;
+  cursor: pointer;
+}
+.moreMenu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (min-width: 900px) {
+  .withSheet .canvasRegion {
+    padding-right: 360px;
+  }
+  .tab {
+    min-width: 68px;
+  }
+}

@@ -1,0 +1,161 @@
+.canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--ie-canvas-bg);
+  touch-action: none;
+}
+
+.canvas :global(.ie-canvas-el) {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  will-change: transform;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  background:
+    linear-gradient(45deg, #2a2a2e 25%, transparent 25%) 0 0 / 16px 16px,
+    linear-gradient(-45deg, #2a2a2e 25%, transparent 25%) 0 8px / 16px 16px,
+    linear-gradient(45deg, transparent 75%, #2a2a2e 75%) 8px -8px / 16px 16px,
+    linear-gradient(-45deg, transparent 75%, #2a2a2e 75%) -8px 0 / 16px 16px;
+}
+
+.gestureLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  touch-action: none;
+}
+
+.compareBadge {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  backdrop-filter: blur(8px);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.imageFrame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  will-change: transform;
+}
+.cropBox {
+  position: absolute;
+  pointer-events: auto;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  cursor: move;
+}
+.cropGrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+  background-size: 33.333% 33.333%;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+.handle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  pointer-events: auto;
+  touch-action: none;
+}
+.handle::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.handleNw {
+  left: -14px;
+  top: -14px;
+  cursor: nwse-resize;
+}
+.handleNe {
+  right: -14px;
+  top: -14px;
+  cursor: nesw-resize;
+}
+.handleSw {
+  left: -14px;
+  bottom: -14px;
+  cursor: nesw-resize;
+}
+.handleSe {
+  right: -14px;
+  bottom: -14px;
+  cursor: nwse-resize;
+}
+.safeArea {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+.safeAreaLabel {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.cropDimensions {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.guideLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(56, 178, 140, 0.9);
+}
+.guideBand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(56, 178, 140, 0.12);
+  border-top: 1px dashed rgba(56, 178, 140, 0.7);
+  border-bottom: 1px dashed rgba(56, 178, 140, 0.7);
+}

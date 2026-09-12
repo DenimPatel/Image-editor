@@ -1,0 +1,78 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf8;
+  --bg-alt: #f1f0eb;
+  --surface: #ffffff;
+  --line: #e6e4dc;
+  --ink: #1c1c1a;
+  --ink-soft: #4a4a46;
+  --muted: #7a7a73;
+  --accent: #1f6f5c;
+  --accent-ink: #143f35;
+  --accent-tint: #e7f1ee;
+  --radius: 14px;
+  --maxw: 1080px;
+  --shadow:
+    0 1px 2px rgba(28, 28, 26, 0.04),
+    0 8px 24px rgba(28, 28, 26, 0.05);
+  --nav-bg-rgb: 250, 250, 248;
+}
+
+/* OS-preference dark palette, applied only until the user makes an explicit
+   choice (see ThemeToggle / useTheme, which then sets [data-theme]). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #17181a;
+    --bg-alt: #1e2020;
+    --surface: #1f2222;
+    --line: #33362f;
+    --ink: #f2f1ea;
+    --ink-soft: #c9c7be;
+    --muted: #8b8a82;
+    --accent: #4fa98c;
+    --accent-ink: #a9e0cc;
+    --accent-tint: #1b342c;
+    --shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.35);
+    --nav-bg-rgb: 23, 24, 26;
+  }
+}
+
+/* Explicit user override, wins regardless of OS preference. */
+:root[data-theme='dark'] {
+  --bg: #17181a;
+  --bg-alt: #1e2020;
+  --surface: #1f2222;
+  --line: #33362f;
+  --ink: #f2f1ea;
+  --ink-soft: #c9c7be;
+  --muted: #8b8a82;
+  --accent: #4fa98c;
+  --accent-ink: #a9e0cc;
+  --accent-tint: #1b342c;
+  --shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  --nav-bg-rgb: 23, 24, 26;
+}
+
+/* Editor chrome tokens. The site (hub) stays themeable, but the editor is
+   always a dark-neutral, iOS-Photos-like ground regardless of theme. */
+:root {
+  --ie-canvas-bg: #121214;
+  --ie-chrome: rgba(28, 28, 30, 0.82);
+  --ie-chrome-solid: #1c1c1e;
+  --ie-chrome-blur: 20px;
+  --ie-hairline: rgba(255, 255, 255, 0.12);
+  --ie-ink: #f2f2f7;
+  --ie-ink-soft: rgba(235, 235, 245, 0.6);
+  --ie-accent: #1f6f5c;
+  --ie-accent-bright: #38b28c;
+  --ie-tap: 44px;
+  --ie-sheet-radius: 20px;
+  --ie-safe-top: env(safe-area-inset-top, 0px);
+  --ie-safe-right: env(safe-area-inset-right, 0px);
+  --ie-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ie-safe-left: env(safe-area-inset-left, 0px);
+}

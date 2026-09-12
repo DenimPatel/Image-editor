@@ -1,4 +1,4 @@
-import type { ExportFormat } from '../state/editorReducer';
+import type { ExportFormat } from '../model/types';
 
 export function canvasToBlob(
   canvas: HTMLCanvasElement,
@@ -19,8 +19,9 @@ export function canvasToBlob(
 
 /**
  * Encodes the final canvas for the given format. PDF is a real
- * application/pdf blob (app.py emitted a data:image/pdf URL and rendered
- * it in an <img> tag, which showed nothing and downloaded the wrong type).
+ * application/pdf blob (the original Python app emitted a data:image/pdf URL
+ * and rendered it in an <img> tag, which showed nothing and downloaded the
+ * wrong type).
  */
 export async function encodeCanvas(
   canvas: HTMLCanvasElement,
@@ -34,9 +35,11 @@ export async function encodeCanvas(
       return canvasToBlob(canvas, 'image/png');
     case 'webp':
       return canvasToBlob(canvas, 'image/webp', quality);
+    case 'avif':
+      return canvasToBlob(canvas, 'image/avif', quality);
     case 'pdf': {
-      // Lazily loaded: jsPDF pulls in a large dependency tree that only
-      // PDF exports need.
+      // Lazily loaded: jsPDF pulls in a large dependency tree that only PDF
+      // exports need.
       const { jsPDF } = await import('jspdf');
       const orientation = canvas.width >= canvas.height ? 'landscape' : 'portrait';
       const pdf = new jsPDF({
@@ -59,8 +62,25 @@ export function extensionFor(format: ExportFormat): string {
       return 'png';
     case 'webp':
       return 'webp';
+    case 'avif':
+      return 'avif';
     case 'pdf':
       return 'pdf';
+  }
+}
+
+export function mimeFor(format: ExportFormat): string {
+  switch (format) {
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'avif':
+      return 'image/avif';
+    case 'pdf':
+      return 'application/pdf';
   }
 }
 

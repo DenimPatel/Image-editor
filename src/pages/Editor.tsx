@@ -1,296 +1,250 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Dropzone } from '../components/Dropzone';
-import { SamplePicker } from '../components/SamplePicker';
-import { Toolbar } from '../components/Toolbar';
-import { Adjustments } from '../components/Adjustments';
-import { CropStage } from '../components/CropStage';
-import { ExportPanel } from '../components/ExportPanel';
-import { Nav } from '../components/ui/Nav';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { ToolRail, type ToolSection } from '../components/ui/ToolRail';
-import { decodeImageFile, decodeImageUrl } from '../lib/decode';
-import { computeOutputHeight, renderFinal, renderTransformed } from '../lib/render';
-import { downloadBlob, encodeCanvas, extensionFor } from '../lib/encode';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import {
-  historyReducer,
-  initialHistory,
-  type CropRect,
-  type EditorAction,
-  type ExportFormat,
-} from '../state/editorReducer';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { EditorCanvas } from '../components/canvas/EditorCanvas';
+import { EditorTopBar } from '../components/editor/EditorTopBar';
+import { HelpOverlay } from '../components/editor/HelpOverlay';
+import { ImportScreen } from '../components/editor/ImportScreen';
+import { JobProgressBar } from '../components/editor/JobProgressBar';
+import { ResumeSessionCard } from '../components/editor/ResumeSessionCard';
+import { ToolSurface } from '../components/editor/ToolSurface';
+import { ToolTabBar } from '../components/editor/ToolTabBar';
+import { CloseGlyph } from '../components/ui/editorIcons';
+import { IconButton } from '../components/controls/IconButton';
+import { ToastStack } from '../components/controls/Toast';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { autoAdjust, buildHistogram } from '../lib/auto';
+import { describeUnsupported } from '../lib/accept';
+import { decodeImageFile } from '../lib/decode';
+import { applyRecipe, readClipboardRecipe, savePreset, writeClipboardRecipe } from '../lib/persist/recipes';
+import { clearSession, createThumbnail, loadSession, saveSession } from '../lib/persist/session';
+import { scheduleOldCacheCleanup } from '../features/ml/ModelLoader';
+import { createDoc } from '../model/defaults';
+import { assetStore } from '../model/assetsSingleton';
+import { croppedSize } from '../model/selectors';
+import { renderExportCanvas } from '../render/exportCanvas';
+import { liveAssetIds, useDocStore } from '../store/docStore';
+import { TOOL_IDS, useUiStore, type ToolId } from '../store/uiStore';
+import styles from '../components/editor/editor.module.css';
 
-const RENDER_DEBOUNCE_MS = 120;
-const VALID_SECTIONS = new Set<ToolSection>(['transform', 'adjust', 'crop', 'export']);
+const VALID_TOOLS = new Set<string>(TOOL_IDS);
+const AUTOSAVE_MS = 1000;
+
+type ResumeState = {
+  doc: ReturnType<typeof createDoc>;
+  updatedAt: number;
+  thumb: string | null;
+  source: Blob;
+};
 
 export default function Editor() {
+  const navigate = useNavigate();
   const { tool } = useParams<{ tool?: string }>();
-  const [activeSection, setActiveSection] = useState<ToolSection | null>(null);
+  const [source, setSource] = useState<ImageBitmap | null>(null);
+  const [sourceBlob, setSourceBlob] = useState<Blob | null>(null);
+  const [fileName, setFileName] = useState('image');
+  const [error, setError] = useState<string | null>(null);
+  const [resume, setResume] = useState<ResumeState | null>(null);
+  const thumbRef = useRef<string | null>(null);
+  const activeTool = useUiStore((state) => state.activeTool);
+  const pushToast = useUiStore((state) => state.pushToast);
+  const revision = useDocStore((state) => state.revision);
 
   useEffect(() => {
-    if (tool && VALID_SECTIONS.has(tool as ToolSection)) {
-      setActiveSection(tool as ToolSection);
-    }
+    if (tool && VALID_TOOLS.has(tool)) useUiStore.getState().setActiveTool(tool as ToolId);
   }, [tool]);
 
   useEffect(() => {
-    if (!activeSection) return;
-    const el = document.getElementById(activeSection);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [activeSection]);
-
-  const [fileName, setFileName] = useState<string>('image');
-  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
-  const [history, dispatch] = useReducer(historyReducer, initialHistory);
-  const state = history.present;
-
-  const [transformedCanvas, setTransformedCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [transformedUrl, setTransformedUrl] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [estimatedBytes, setEstimatedBytes] = useState<number | null>(null);
-  const [isEstimating, setIsEstimating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const debouncedState = useDebouncedValue(state, RENDER_DEBOUNCE_MS);
-
-  const apply = useCallback((action: EditorAction) => {
-    dispatch({ type: 'APPLY', action });
+    scheduleOldCacheCleanup();
+    void loadSession().then((session) => {
+      if (session?.source) setResume(session as ResumeState);
+    });
   }, []);
 
-  const handleFile = useCallback(async (file: File) => {
+  const loadBitmap = useCallback((bitmap: ImageBitmap, name: string, mime: string, blob: Blob | null) => {
+    const assetId = assetStore.add(bitmap);
+    useDocStore.getState().load(
+      createDoc({ source: { assetId, width: bitmap.width, height: bitmap.height, name, mime } }),
+    );
+    assetStore.prune(liveAssetIds());
+    thumbRef.current = createThumbnail(bitmap);
+    setFileName(name);
     setError(null);
-    try {
-      const decoded = await decodeImageFile(file);
-      setBitmap(decoded);
-      setFileName(file.name.replace(/\.[^/.]+$/, ''));
-      dispatch({ type: 'APPLY', action: { type: 'RESET' } });
-    } catch {
-      setError('Could not read that file as an image.');
-    }
+    setSource(bitmap);
+    setSourceBlob(blob);
+    setResume(null);
   }, []);
 
-  const handleSampleSelect = useCallback(async (url: string, label: string) => {
-    setError(null);
-    try {
-      const decoded = await decodeImageUrl(url);
-      setBitmap(decoded);
-      setFileName(label);
-      dispatch({ type: 'APPLY', action: { type: 'RESET' } });
-    } catch {
-      setError('Could not load that sample image.');
-    }
-  }, []);
-
-  const transformParams = useMemo(
-    () => ({
-      flipH: debouncedState.flipH,
-      flipV: debouncedState.flipV,
-      rotation: debouncedState.rotation,
-      brightness: debouncedState.brightness,
-      contrast: debouncedState.contrast,
-      saturation: debouncedState.saturation,
-      matte: debouncedState.matte,
-    }),
-    [
-      debouncedState.flipH,
-      debouncedState.flipV,
-      debouncedState.rotation,
-      debouncedState.brightness,
-      debouncedState.contrast,
-      debouncedState.saturation,
-      debouncedState.matte,
-    ],
+  const handleFile = useCallback(
+    async (file: File) => {
+      const unsupported = describeUnsupported(file);
+      if (unsupported) {
+        setError(unsupported);
+        return;
+      }
+      try {
+        const bitmap = await decodeImageFile(file);
+        loadBitmap(bitmap, file.name.replace(/\.[^/.]+$/, ''), file.type, file);
+      } catch {
+        setError('Could not read that file as an image.');
+      }
+    },
+    [loadBitmap],
   );
 
-  // Stage 1: flip/rotate/filters -> transformed canvas.
-  useEffect(() => {
-    if (!bitmap) {
-      setTransformedCanvas(null);
-      return;
-    }
-    const canvas = renderTransformed(bitmap, transformParams);
-    setTransformedCanvas(canvas);
-  }, [bitmap, transformParams]);
-
-  useEffect(() => {
-    if (!transformedCanvas) {
-      setTransformedUrl(null);
-      return;
-    }
-    setTransformedUrl(transformedCanvas.toDataURL('image/png'));
-  }, [transformedCanvas]);
-
-  const geometryKey = `${debouncedState.flipH}-${debouncedState.flipV}-${debouncedState.rotation}`;
-
-  const outHeight = useMemo(() => {
-    if (!state.crop) return null;
-    return computeOutputHeight(state.outWidth, state.crop);
-  }, [state.crop, state.outWidth]);
-
-  // Stage 2: crop + resize + encode -> final preview & size estimate.
-  useEffect(() => {
-    if (!bitmap) {
-      setPreviewUrl(null);
-      setEstimatedBytes(null);
-      return;
-    }
-    let cancelled = false;
-    setIsEstimating(true);
-
-    (async () => {
+  const handleSample = useCallback(
+    async (url: string, label: string) => {
       try {
-        const finalCanvas = renderFinal(bitmap, debouncedState);
-        const blob = await encodeCanvas(finalCanvas, debouncedState.format, debouncedState.quality);
-        if (cancelled) return;
-        setEstimatedBytes(blob.size);
-        if (debouncedState.format !== 'pdf') {
-          const url = URL.createObjectURL(blob);
-          setPreviewUrl((old) => {
-            if (old) URL.revokeObjectURL(old);
-            return url;
-          });
-        } else {
-          setPreviewUrl(null);
-        }
-      } finally {
-        if (!cancelled) setIsEstimating(false);
+        const blob = await fetch(url).then((response) => response.blob());
+        const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+        loadBitmap(bitmap, label, 'image/jpeg', blob);
+      } catch {
+        setError('Could not load that sample image.');
       }
-    })();
+    },
+    [loadBitmap],
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [bitmap, debouncedState]);
-
-  const handleDownload = useCallback(async () => {
-    if (!bitmap) return;
-    const finalCanvas = renderFinal(bitmap, state);
-    const blob = await encodeCanvas(finalCanvas, state.format, state.quality);
-    downloadBlob(blob, `${fileName}-edited.${extensionFor(state.format)}`);
-  }, [bitmap, state, fileName]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const isMeta = event.metaKey || event.ctrlKey;
-      if (isMeta && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        dispatch({ type: event.shiftKey ? 'REDO' : 'UNDO' });
-        return;
-      }
-      if (isMeta && event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        void handleDownload();
-        return;
-      }
-      const target = event.target as HTMLElement | null;
-      const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-      if (isTyping) return;
-
-      if (event.key === '[') apply({ type: 'ROTATE_BY', degrees: -90 });
-      else if (event.key === ']') apply({ type: 'ROTATE_BY', degrees: 90 });
-      else if (event.key.toLowerCase() === 'f') apply({ type: 'TOGGLE_FLIP_H' });
-      else if (event.key.toLowerCase() === 'g') apply({ type: 'TOGGLE_GRID' });
+  const handleResume = useCallback(async () => {
+    if (!resume) return;
+    try {
+      const bitmap = await createImageBitmap(resume.source, { imageOrientation: 'from-image' });
+      const assetId = assetStore.add(bitmap, resume.doc.source?.assetId);
+      const doc = resume.doc.source
+        ? { ...resume.doc, source: { ...resume.doc.source, assetId, width: bitmap.width, height: bitmap.height } }
+        : resume.doc;
+      useDocStore.getState().load(doc);
+      thumbRef.current = resume.thumb ?? createThumbnail(bitmap);
+      setSource(bitmap);
+      setSourceBlob(resume.source);
+      setFileName(resume.doc.source?.name ?? 'image');
+      setResume(null);
+    } catch {
+      setError('Could not restore the previous session.');
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [apply, handleDownload]);
+  }, [resume]);
+
+  const handleDiscard = useCallback(() => {
+    void clearSession();
+    setResume(null);
+  }, []);
+
+  // Debounced autosave; only the JSON doc and original bytes are stored.
+  useEffect(() => {
+    if (!source) return;
+    const timer = window.setTimeout(() => {
+      void saveSession(useDocStore.getState().present, sourceBlob, thumbRef.current);
+    }, AUTOSAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [source, sourceBlob, revision]);
+
+  const handleAuto = useCallback(async () => {
+    if (!source) return;
+    try {
+      const doc = useDocStore.getState().present;
+      const base = croppedSize(doc);
+      const width = 256;
+      const height = Math.max(1, Math.round((width * base.height) / base.width));
+      const canvas = await renderExportCanvas(source, doc, { width, height });
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('no context');
+      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const partial = autoAdjust(buildHistogram(data));
+      useDocStore.getState().update((current) => ({ ...current, adjust: { ...current.adjust, ...partial } }), {
+        key: 'auto',
+      });
+      pushToast('Auto applied', 'success');
+    } catch {
+      pushToast('Auto could not be applied', 'error');
+    }
+  }, [pushToast, source]);
+
+  const handleCopyEdits = useCallback(() => {
+    writeClipboardRecipe(useDocStore.getState().present);
+    pushToast('Edits copied', 'success');
+  }, [pushToast]);
+
+  const handlePasteEdits = useCallback(() => {
+    const raw = readClipboardRecipe();
+    const next = raw ? applyRecipe(useDocStore.getState().present, raw) : null;
+    if (!next) {
+      pushToast('Nothing to paste', 'error');
+      return;
+    }
+    useDocStore.getState().update(() => next, { key: 'paste' });
+    pushToast('Edits pasted', 'success');
+  }, [pushToast]);
+
+  const handleSavePreset = useCallback(() => {
+    const name = window.prompt('Preset name', 'My preset')?.trim();
+    if (!name) return;
+    savePreset(name, useDocStore.getState().present);
+    pushToast(`Saved “${name}”`, 'success');
+  }, [pushToast]);
+
+  useKeyboardShortcuts({
+    onExport: () => useUiStore.getState().setActiveTool('export'),
+    onCommit: () => useUiStore.getState().setActiveTool(null),
+    onCancel: () => useUiStore.getState().setActiveTool(null),
+  });
+
+  const openExport = useCallback(() => {
+    if (!useUiStore.getState().activeTool) useUiStore.getState().setActiveTool('export');
+  }, []);
 
   return (
-    <div className="editor-page">
-      <Nav variant="editor" />
-
-      <div className="wrap editor-wrap">
-        {!bitmap && (
-          <>
-            <Dropzone onFile={handleFile} />
-            <SamplePicker onSelect={handleSampleSelect} />
-          </>
-        )}
-        {error && <p className="app__error">{error}</p>}
-
-        {bitmap && transformedUrl && (
-          <div className="app__editor">
-            <div className="app__stage">
-              <ToolRail active={activeSection} onSelect={setActiveSection} />
-
-              <div className="app__sections">
-                <Card legend="Transform" focused={activeSection === 'transform'} id="transform">
-                  <Toolbar
-                    flipH={state.flipH}
-                    flipV={state.flipV}
-                    rotation={state.rotation}
-                    showGrid={state.showGrid}
-                    canUndo={history.past.length > 0}
-                    canRedo={history.future.length > 0}
-                    onFlipH={() => apply({ type: 'TOGGLE_FLIP_H' })}
-                    onFlipV={() => apply({ type: 'TOGGLE_FLIP_V' })}
-                    onRotateBy={(degrees) => apply({ type: 'ROTATE_BY', degrees })}
-                    onSetRotation={(degrees) => apply({ type: 'SET_ROTATION', degrees })}
-                    onToggleGrid={() => apply({ type: 'TOGGLE_GRID' })}
-                    onUndo={() => dispatch({ type: 'UNDO' })}
-                    onRedo={() => dispatch({ type: 'REDO' })}
-                    onReset={() => apply({ type: 'RESET' })}
-                  />
-                  <p className="app__original-dimensions">
-                    Original dimensions: {bitmap.width} x {bitmap.height} pixels
-                  </p>
-                </Card>
-
-                <div id="adjust" className={activeSection === 'adjust' ? 'is-focused' : ''}>
-                  <Adjustments
-                    brightness={state.brightness}
-                    contrast={state.contrast}
-                    saturation={state.saturation}
-                    onBrightness={(value) => apply({ type: 'SET_BRIGHTNESS', value })}
-                    onContrast={(value) => apply({ type: 'SET_CONTRAST', value })}
-                    onSaturation={(value) => apply({ type: 'SET_SATURATION', value })}
-                  />
-                </div>
-
-                <Card id="crop" className="crop-card" legend="Crop" focused={activeSection === 'crop'}>
-                  <CropStage
-                    src={transformedUrl}
-                    geometryKey={geometryKey}
-                    aspect={state.aspect}
-                    showGrid={state.showGrid}
-                    crop={state.crop}
-                    onCropChange={(crop: CropRect) => apply({ type: 'SET_CROP', crop })}
-                    onAspectChange={(aspect) => apply({ type: 'SET_ASPECT', aspect })}
-                  />
-                </Card>
-
-                <div id="export" className={activeSection === 'export' ? 'is-focused' : ''}>
-                  <ExportPanel
-                    format={state.format}
-                    quality={state.quality}
-                    outWidth={state.outWidth}
-                    outHeight={outHeight}
-                    matte={state.matte}
-                    estimatedBytes={estimatedBytes}
-                    isEstimating={isEstimating}
-                    previewUrl={previewUrl}
-                    onFormat={(format: ExportFormat) => apply({ type: 'SET_FORMAT', format })}
-                    onQuality={(value) => apply({ type: 'SET_QUALITY', value })}
-                    onOutWidth={(value) => apply({ type: 'SET_OUT_WIDTH', value })}
-                    onMatte={(value) => apply({ type: 'SET_MATTE', value })}
-                    onDownload={() => void handleDownload()}
-                  />
-                </div>
-
-                <p className="app__new-image-hint">
-                  To process a new image, go back to the{' '}
-                  <Button as="link" to="/" variant="ghost">
-                    homepage
-                  </Button>
-                  .
-                </p>
-              </div>
-            </div>
+    <div className={styles.editor}>
+      <JobProgressBar />
+      {!source ? (
+        <>
+          <header className={styles.topBar}>
+            <IconButton label="Back to home" onClick={() => navigate('/')}>
+              <CloseGlyph />
+            </IconButton>
+            <span className={styles.topBarTitle}>New image</span>
+            <span style={{ width: 44 }} />
+          </header>
+          <ImportScreen
+            onFile={handleFile}
+            onSample={handleSample}
+            error={error}
+            resume={
+              resume ? (
+                <ResumeSessionCard
+                  thumbnailUrl={resume.thumb}
+                  updatedAt={resume.updatedAt}
+                  onResume={() => void handleResume()}
+                  onDiscard={handleDiscard}
+                />
+              ) : undefined
+            }
+          />
+        </>
+      ) : (
+        <>
+          <EditorTopBar
+            title={fileName}
+            onClose={() => navigate('/')}
+            onDone={openExport}
+            onReset={() => useDocStore.getState().reset()}
+            onCopyEdits={handleCopyEdits}
+            onPasteEdits={handlePasteEdits}
+            onSavePreset={handleSavePreset}
+            onInfo={() =>
+              pushToast(
+                `${source.width}×${source.height} source · ${useDocStore.getState().present.layers.length} layers`,
+              )
+            }
+            canPaste={readClipboardRecipe() !== null}
+          />
+          <div className={`${styles.canvasRegion}${activeTool ? ` ${styles.withSheet}` : ''}`}>
+            <EditorCanvas source={source} />
           </div>
-        )}
-      </div>
+          <ToolTabBar />
+          <ToolSurface source={source} fileName={fileName} onAuto={handleAuto} />
+        </>
+      )}
+      <ToastStack />
+      <HelpOverlay />
     </div>
   );
 }

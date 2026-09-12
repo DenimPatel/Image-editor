@@ -8,16 +8,21 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "test": "vitest run",
+    "models:fetch": "node scripts/fetch-models.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {
-    "cropperjs": "^1.6.2",
+    "@use-gesture/react": "^10.3.1",
+    "comlink": "^4.4.2",
+    "fflate": "^0.8.3",
+    "idb": "^8.0.3",
     "jspdf": "^4.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.6"
+    "react-router-dom": "^6.30.6",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
