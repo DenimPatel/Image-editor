@@ -108,7 +108,10 @@ copy/paste-edits all fall out of that.
 `npm test` runs fast, jsdom-only unit tests over every decision that can be made pure: crop
 geometry, sizing, history coalescing, curves/HSL/auto, pass planning and tiling, passport framing/
 compliance/sheets, DPI/EXIF byte surgery, target-bytes search, layer z-order, and the model loader.
-Shader correctness on real GPUs is exercised separately (see below).
+
+`npm run test:e2e` runs a Playwright suite (Chromium, against a production build) that loads a
+deterministic fixture image and proves each tool actually mutates pixels as expected — not just
+that its UI renders. See `tests/e2e/`.
 
 ## 🚧 Non-goals
 
@@ -118,10 +121,17 @@ super-resolution, HEIC decode, RAW, video and generative fill.
 
 ## 🗺️ Roadmap
 
-- Playwright smoke suite (Chromium + WebKit, forced WebGL context loss, golden shader pixels).
-- Face-landmark-driven portrait retouch (smoothing, healing, whitening, red-eye) on top of the
-  existing local-adjustment masks.
+- Finish local adjustment masks: `src/gl/renderer.ts` still skips `local` passes ("Phase 3"), and
+  there is no UI yet to create a brush/linear/radial/luminance/subject mask.
+- Extend the Playwright suite to WebKit and add forced-WebGL-context-loss / golden-shader-pixel
+  coverage; extend tool coverage beyond Adjust/Retouch/undo-redo to crop, curves, HSL, filters,
+  layers, background removal and export.
+- True clone-stamp tool (explicit source-point picking, replacing the ring-average heal).
+- Dodge/burn brush, channel mixer, gradient map, selective color.
+- Layer effects (drop shadow, stroke, outer glow) for text/shape layers.
+- Pressure/velocity-sensitive brush dynamics.
 - Manual matte-repair brush for background edges.
+- Content-aware fill / object removal (needs an inpainting model — research spike, not committed).
 
 ## License
 
