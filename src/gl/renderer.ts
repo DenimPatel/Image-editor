@@ -238,6 +238,31 @@ export class GlRenderer implements RenderBackend {
       case 'vignette':
         setFloat(gl, program, 'u_amount', pass.amount);
         break;
+      case 'retouch': {
+        const minSide = Math.min(size.width, size.height);
+        setFloat(gl, program, 'u_smooth', pass.smooth);
+        setVec2(gl, program, 'u_uvScale', minSide / size.width, minSide / size.height);
+        const healData = new Float32Array(S.MAX_HEAL_SPOTS * 3);
+        pass.healSpots.slice(0, S.MAX_HEAL_SPOTS).forEach((spot, index) => {
+          healData[index * 3] = spot.at.x;
+          healData[index * 3 + 1] = spot.at.y;
+          healData[index * 3 + 2] = spot.radius;
+        });
+        const healLocation = gl.getUniformLocation(program, 'u_healSpots');
+        if (healLocation) gl.uniform3fv(healLocation, healData);
+        setInt(gl, program, 'u_healCount', Math.min(pass.healSpots.length, S.MAX_HEAL_SPOTS));
+
+        const redEyeData = new Float32Array(S.MAX_RED_EYE_SPOTS * 3);
+        pass.redEye.slice(0, S.MAX_RED_EYE_SPOTS).forEach((spot, index) => {
+          redEyeData[index * 3] = spot.at.x;
+          redEyeData[index * 3 + 1] = spot.at.y;
+          redEyeData[index * 3 + 2] = spot.radius;
+        });
+        const redEyeLocation = gl.getUniformLocation(program, 'u_redEyeSpots');
+        if (redEyeLocation) gl.uniform3fv(redEyeLocation, redEyeData);
+        setInt(gl, program, 'u_redEyeCount', Math.min(pass.redEye.length, S.MAX_RED_EYE_SPOTS));
+        break;
+      }
       case 'background': {
         const [r, g, b] = hexToRgb(pass.background.color);
         setVec3(gl, program, 'u_color', r, g, b);
@@ -291,6 +316,8 @@ export class GlRenderer implements RenderBackend {
         return this.programs.get('effects', S.QUAD_VERT, S.EFFECTS_FRAG);
       case 'vignette':
         return this.programs.get('vignette', S.QUAD_VERT, S.VIGNETTE_FRAG);
+      case 'retouch':
+        return this.programs.get('retouch', S.QUAD_VERT, S.RETOUCH_FRAG);
       case 'background':
         return this.programs.get('background', S.QUAD_VERT, S.BACKGROUND_FRAG);
       case 'output':

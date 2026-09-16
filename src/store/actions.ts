@@ -171,6 +171,49 @@ export function nudgeLayer(id: string, delta: number): void {
   });
 }
 
+export function setRetouchSmooth(value: number): void {
+  useDocStore.getState().update((doc) => ({
+    ...doc,
+    retouch: { ...doc.retouch, smooth: Math.max(0, Math.min(100, value)) },
+  }));
+}
+
+export function addHealSpot(at: { x: number; y: number }, radius: number): string {
+  const id = createId('heal');
+  useDocStore.getState().update(
+    (doc) => ({
+      ...doc,
+      retouch: { ...doc.retouch, healSpots: [...doc.retouch.healSpots, { id, at, radius }] },
+    }),
+    { key: 'retouch:heal' },
+  );
+  return id;
+}
+
+export function removeHealSpot(id: string): void {
+  useDocStore.getState().update((doc) => ({
+    ...doc,
+    retouch: { ...doc.retouch, healSpots: doc.retouch.healSpots.filter((spot) => spot.id !== id) },
+  }));
+}
+
+export function addRedEye(at: { x: number; y: number }, radius: number): void {
+  useDocStore.getState().update(
+    (doc) => ({
+      ...doc,
+      retouch: { ...doc.retouch, redEye: [...doc.retouch.redEye, { at, radius }] },
+    }),
+    { key: 'retouch:redEye' },
+  );
+}
+
+export function removeRedEyeAt(index: number): void {
+  useDocStore.getState().update((doc) => ({
+    ...doc,
+    retouch: { ...doc.retouch, redEye: doc.retouch.redEye.filter((_, candidate) => candidate !== index) },
+  }));
+}
+
 export function clearDrawStrokes(id: string): void {
   useDocStore.getState().update((doc) => ({
     ...doc,

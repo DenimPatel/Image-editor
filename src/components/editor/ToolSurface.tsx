@@ -9,6 +9,7 @@ import { FiltersPanel } from '../tools/FiltersPanel';
 import { DrawPanel, FramePanel, LayersPanel, RedactPanel, StickersPanel, TextPanel } from '../tools/LayerPanels';
 import { PassportPanel } from '../tools/PassportPanel';
 import { PlaceholderPanel } from '../tools/PlaceholderPanel';
+import { RetouchPanel } from '../tools/RetouchPanel';
 
 const TITLES: Record<ToolId, string> = {
   crop: 'Crop & Straighten',
@@ -27,7 +28,6 @@ const TITLES: Record<ToolId, string> = {
 };
 
 const DESCRIPTIONS: Partial<Record<ToolId, string>> = {
-  retouch: 'Skin smoothing, blemish healing and red-eye removal arrive with the portrait tools.',
   background: 'Remove and replace the background with a real subject matte.',
   text: 'Add text layers with self-hosted fonts, stroke, shadow and arc.',
   draw: 'Pressure-aware pen, marker, highlighter and neon brushes.',
@@ -64,6 +64,9 @@ export function ToolSurface({
       break;
     case 'filters':
       panel = <FiltersPanel />;
+      break;
+    case 'retouch':
+      panel = <RetouchPanel />;
       break;
     case 'background':
       panel = <BackgroundPanel source={source} />;

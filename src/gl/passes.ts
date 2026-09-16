@@ -1,4 +1,4 @@
-import type { Background, Curves, Doc, HslMix, Layer, Mask, Size } from '../model/types';
+import type { Background, Curves, Doc, HealSpot, HslMix, Layer, Mask, Size } from '../model/types';
 import type { Mat3 } from './geometry';
 
 /**
@@ -37,6 +37,12 @@ export type SharpenPass = { kind: 'sharpen'; amount: number };
 export type VignettePass = { kind: 'vignette'; amount: number };
 export type EffectsPass = { kind: 'effects'; grain: number; bloom: number; fieldBlur: number };
 export type LocalPass = { kind: 'local'; mask: Mask; values: Record<string, number> };
+export type RetouchPass = {
+  kind: 'retouch';
+  smooth: number;
+  healSpots: HealSpot[];
+  redEye: { at: { x: number; y: number }; radius: number }[];
+};
 export type BackgroundPass = { kind: 'background'; background: Background };
 export type LayersPass = { kind: 'layers'; layers: Layer[] };
 export type OutputPass = {
@@ -59,6 +65,7 @@ export type Pass =
   | DefinitionPass
   | SharpenPass
   | LocalPass
+  | RetouchPass
   | BackgroundPass
   | EffectsPass
   | VignettePass
@@ -172,6 +179,16 @@ export function planPasses(doc: Doc, size: Size, geometryMatrix?: Mat3): Pass[] 
     passes.push({ kind: 'sharpen', amount: doc.adjust.sharpness / 100 });
   }
 
+  const retouch = doc.retouch;
+  if (retouch.smooth > 0 || retouch.healSpots.length > 0 || retouch.redEye.length > 0) {
+    passes.push({
+      kind: 'retouch',
+      smooth: retouch.smooth / 100,
+      healSpots: retouch.healSpots,
+      redEye: retouch.redEye,
+    });
+  }
+
   for (const local of doc.localAdjusts) {
     if (!local.enabled) continue;
     const mask = doc.masks.find((candidate) => candidate.id === local.maskId);
@@ -261,6 +278,8 @@ export function planHash(passes: Pass[]): string {  return passes
           return `layers:${pass.layers.map((layer) => `${layer.id}:${layer.kind}`).join(',')}`;
         case 'local':
           return `local:${pass.mask.id}:${JSON.stringify(pass.values)}`;
+        case 'retouch':
+          return `retouch:${pass.smooth}:${JSON.stringify(pass.healSpots)}:${JSON.stringify(pass.redEye)}`;
         case 'background':
           return `bg:${pass.background.mode}:${pass.background.color}:${pass.background.imageAssetId ?? ''}`;
         case 'output':

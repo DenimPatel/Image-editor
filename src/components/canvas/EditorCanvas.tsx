@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { createDrawLayer } from '../../features/layers/factory';
 import { useRenderLoop } from '../../hooks/useRenderLoop';
 import type { DrawLayer } from '../../model/types';
-import { addLayerToDoc, updateLayerPatch } from '../../store/actions';
+import { addHealSpot, addLayerToDoc, addRedEye, updateLayerPatch } from '../../store/actions';
 import { getDoc, useDocStore } from '../../store/docStore';
 import { useUiStore } from '../../store/uiStore';
 import { CompareGlyph } from '../ui/editorIcons';
@@ -163,7 +163,21 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
 
   return (
     <div className={styles.canvas} ref={containerRef}>
-      <div className={styles.gestureLayer} {...gesture} onDoubleClick={() => useUiStore.getState().resetViewport()} />
+      <div
+        className={styles.gestureLayer}
+        {...gesture}
+        onDoubleClick={() => useUiStore.getState().resetViewport()}
+        onClick={(event) => {
+          if (activeTool !== 'retouch') return;
+          const mode = useUiStore.getState().retouchMode;
+          if (!mode) return;
+          const point = pointFromEvent(event.clientX, event.clientY);
+          if (!point) return;
+          const radius = useUiStore.getState().retouchRadius;
+          if (mode === 'heal') addHealSpot(point, radius);
+          else addRedEye(point, radius);
+        }}
+      />
       {activeTool === 'crop' && <CropOverlay />}
       <button
         type="button"

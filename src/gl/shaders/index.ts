@@ -276,6 +276,92 @@ void main() {
   outColor = vec4(clamp(c, 0.0, 1.0), texel.a);
 }`;
 
+export const MAX_HEAL_SPOTS = 16;
+export const MAX_RED_EYE_SPOTS = 12;
+
+export const RETOUCH_FRAG = `${HEADER}
+uniform float u_smooth;
+uniform vec2 u_uvScale;
+uniform int u_healCount;
+uniform vec3 u_healSpots[${MAX_HEAL_SPOTS}];
+uniform int u_redEyeCount;
+uniform vec3 u_redEyeSpots[${MAX_RED_EYE_SPOTS}];
+
+const vec2 RING[12] = vec2[12](
+  vec2(1.0, 0.0), vec2(0.866, 0.5), vec2(0.5, 0.866), vec2(0.0, 1.0),
+  vec2(-0.5, 0.866), vec2(-0.866, 0.5), vec2(-1.0, 0.0), vec2(-0.866, -0.5),
+  vec2(-0.5, -0.866), vec2(0.0, -1.0), vec2(0.5, -0.866), vec2(0.866, -0.5)
+);
+
+/** Edge-aware (bilateral-style) smoothing: blur weighted down across colour edges. */
+vec3 smoothSkin(vec2 uv, vec3 center) {
+  vec3 sum = center;
+  float total = 1.0;
+  for (int ring = 1; ring <= 4; ring++) {
+    float spatialW = 1.0 / float(ring);
+    float radiusPx = float(ring) * 9.0;
+    for (int i = 0; i < 12; i++) {
+      vec2 offset = RING[i] * radiusPx * u_texel;
+      vec3 s = texture(u_tex, uv + offset).rgb;
+      vec3 diff = s - center;
+      float colorW = exp(-dot(diff, diff) * 4.0);
+      float w = spatialW * colorW;
+      sum += s * w;
+      total += w;
+    }
+  }
+  return sum / total;
+}
+
+void main() {
+  vec4 texel = texture(u_tex, v_uv);
+  vec3 c = texel.rgb;
+
+  if (u_smooth > 0.001) {
+    c = mix(c, smoothSkin(v_uv, c), u_smooth);
+  }
+
+  // Spot coordinates (HealSpot/redEye .at) are authored in document space,
+  // where y=0 is the top (same convention as BrushStroke/layer points).
+  // WebGL framebuffer v_uv runs bottom-up, so flip y before comparing.
+  vec2 docUv = vec2(v_uv.x, 1.0 - v_uv.y);
+
+  for (int i = 0; i < ${MAX_HEAL_SPOTS}; i++) {
+    if (i >= u_healCount) break;
+    vec3 spot = u_healSpots[i];
+    vec2 delta = (docUv - spot.xy) / u_uvScale;
+    float dist = length(delta);
+    float radius = spot.z;
+    if (dist < radius) {
+      vec3 healed = vec3(0.0);
+      for (int k = 0; k < 12; k++) {
+        vec2 ringDocUv = spot.xy + RING[k] * (radius * 1.3) * u_uvScale;
+        vec2 ringUv = vec2(ringDocUv.x, 1.0 - ringDocUv.y);
+        healed += texture(u_tex, ringUv).rgb;
+      }
+      healed /= 12.0;
+      float blend = smoothstep(radius, radius * 0.35, dist);
+      c = mix(c, healed, blend);
+    }
+  }
+
+  for (int i = 0; i < ${MAX_RED_EYE_SPOTS}; i++) {
+    if (i >= u_redEyeCount) break;
+    vec3 spot = u_redEyeSpots[i];
+    vec2 delta = (docUv - spot.xy) / u_uvScale;
+    float dist = length(delta);
+    float radius = spot.z;
+    if (dist < radius) {
+      float redness = clamp(c.r - max(c.g, c.b), 0.0, 1.0) * 2.5;
+      float falloff = smoothstep(radius, radius * 0.5, dist);
+      vec3 desat = vec3(luma(c) * 0.35);
+      c = mix(c, desat, clamp(redness, 0.0, 1.0) * falloff);
+    }
+  }
+
+  outColor = vec4(clamp(c, 0.0, 1.0), texel.a);
+}`;
+
 export const BACKGROUND_FRAG = `${HEADER}
 uniform vec3 u_color;
 uniform vec3 u_gradientFrom;

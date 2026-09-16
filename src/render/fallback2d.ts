@@ -64,6 +64,17 @@ export class Canvas2dRenderer implements RenderBackend {
       ctx.restore();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Approximate skin smoothing as a soft blur composited at reduced opacity;
+    // heal/red-eye spots need per-pixel work and only run on the GL backend.
+    if (doc.retouch.smooth > 0) {
+      const blurPx = (doc.retouch.smooth / 100) * 6;
+      ctx.save();
+      ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
+      ctx.globalAlpha = doc.retouch.smooth / 100;
+      ctx.drawImage(this.canvas, 0, 0);
+      ctx.restore();
+    }
   }
 
   dispose(): void {

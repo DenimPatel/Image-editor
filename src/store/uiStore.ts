@@ -60,6 +60,8 @@ export type Viewport = {
   y: number;
 };
 
+export type RetouchMode = 'heal' | 'redEye' | null;
+
 export type UiStore = {
   activeTool: ToolId | null;
   sheetDetent: SheetDetent;
@@ -71,8 +73,12 @@ export type UiStore = {
   jobs: Job[];
   toasts: Toast[];
   showHelp: boolean;
+  retouchMode: RetouchMode;
+  retouchRadius: number;
 
   setActiveTool: (tool: ToolId | null) => void;
+  setRetouchMode: (mode: RetouchMode) => void;
+  setRetouchRadius: (radius: number) => void;
   setSheetDetent: (detent: SheetDetent) => void;
   setViewport: (viewport: Partial<Viewport>) => void;
   resetViewport: () => void;
@@ -103,8 +109,12 @@ export const useUiStore = create<UiStore>((set) => ({
   jobs: [],
   toasts: [],
   showHelp: false,
+  retouchMode: null,
+  retouchRadius: 0.05,
 
   setActiveTool: (activeTool) => set({ activeTool }),
+  setRetouchMode: (retouchMode) => set({ retouchMode }),
+  setRetouchRadius: (retouchRadius) => set({ retouchRadius: Math.max(0.01, Math.min(0.25, retouchRadius)) }),
   setSheetDetent: (sheetDetent) => set({ sheetDetent }),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   resetViewport: () => set({ viewport: DEFAULT_VIEWPORT }),
