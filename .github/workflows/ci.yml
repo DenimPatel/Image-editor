@@ -114,8 +114,29 @@ jobs:
         # `browser` is separate from `project` because the Pixel 7 descriptor is
         # Chromium-based, so the install step must ask for chromium while the
         # run must select the `mobile` project.
-        project: [chromium, webkit, mobile]
-        browser: [chromium, webkit, chromium]
+        #
+        # The three legs are therefore spelled out as `include` pairs rather than
+        # written as two lists. Two lists are a cartesian product, and a product
+        # is the wrong shape here: `project` selects which `projects[]` entry
+        # from `playwright.config.ts` runs, and that entry names the browser it
+        # launches, so `project` alone already decides the binary. `browser` only
+        # decides what `playwright install` downloads, and the only project whose
+        # binary differs from its own name is `mobile`, which is a Pixel 7 — a
+        # Chromium device. The product generated all nine combinations, and four
+        # of them — `project: webkit` with `browser: chromium`, twice, and
+        # `project: chromium`/`project: mobile` with `browser: webkit` — installed
+        # a browser the run never launched and then died on
+        # `browserType.launch: Executable doesn't exist at
+        # ~/.cache/ms-playwright/webkit-2359/pw_run.sh`. Four guaranteed-red legs
+        # out of nine, on every push, which is what a matrix nobody checks the
+        # shape of looks like. Three pairs, three legs, all coherent.
+        include:
+          - project: chromium
+            browser: chromium
+          - project: webkit
+            browser: webkit
+          - project: mobile
+            browser: chromium
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
