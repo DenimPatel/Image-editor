@@ -5,7 +5,111 @@
   flex-direction: column;
   background: var(--ie-canvas-bg);
   color: var(--ie-ink);
-  z-index: 30;
+  z-index: var(--z-chrome);
+  /* The editor is hardcoded dark whatever the hub theme is, so the focus ring
+     has to be re-declared here or it inherits the light surface's colour. */
+  --focus-ring: var(--ie-accent-bright);
+  /* And the *scheme* has to be re-declared here, for the same reason and with
+     more reach. `color-scheme` is what the UA paints from: an unstyled link, a
+     scrollbar, a `<select>` popup, a checkbox, the text cursor, the autofill
+     highlight. `:root` pins that to the *hub* theme, so a reader who chose a
+     light hub got a light editor's chrome sitting on `#121214` — and the Pexels
+     credit below the sample tiles came out as the light-mode link blue
+     `#0000ee` on that ground, which measures 1.99:1.
+
+     The a11y gate had been green over it because the credit line sits below the
+     fold at the e2e viewport and axe does not read what it cannot see, so this is
+     the second half of the same defect: the palette was already scoped to the
+     surface, the scheme was not. One line here, and the editor answers for
+     itself the way its own focus ring already did. */
+  color-scheme: dark;
+  /* …except under forced colors, where the OS owns the scheme.
+     `color-scheme` is not only "which of my two palettes", it is also "paint the
+     UA affordances — and every system colour — for *this* scheme". WebKit honours
+     the page's pin, so the editor asked for the dark system palette and got it:
+     `Canvas` `#1e1e1e` with the dark-mode link colour `#385575` on top of it,
+     2.16:1, across the whole shortcuts overlay. The palette to paint in
+     forced-colors mode is the one the reader's OS chose, and `normal` is what
+     says "take it from the system". */
+  /* The shared skip link reads this, and the editor's frame is 52px of top bar
+     rather than the hub's, so it has to answer for itself. It used to be a
+     second `60px` literal in `.skipLink` below — the one number this token
+     exists to stop being written twice. */
+  --ie-skip-top: 60px;
+  /* `.topBar`'s own height, written once because a rule outside this file has to
+   clear it: `.toastStack` in `controls.module.css` sits just under it so a
+   transient message can never land on the tool tab bar or on a tool panel. The
+   bar below takes its `min-height` from this token rather than restating it, so
+   the offset and the bar cannot drift apart.
+
+   It is exact rather than an approximation because the bar's height is decided by
+   that `min-height` and nothing inside it is taller: every control in it is at
+   least `--ie-tap`, which is `44px * --density-factor` and so tops out at 50.6px
+   under the roomiest density, inside the 52px the bar asks for, and the only type
+   in it is the filename at `--font-xs`. If that ever stops being true the bar
+   grows, this token goes stale, and the toast goes back under the panel — so
+   `e2e/journey.responsive.spec.ts` measures the two boxes against each other
+   rather than trusting this comment. */
+  --ie-topbar-height: calc(52px + var(--ie-safe-top));
+  /* The tool tab bar's own height, by the same argument as `--ie-topbar-height`
+     above and for the same reason: two things outside this file have to clear
+     the bar, and neither may write the number.
+
+     `.tabBar` has no `min-height`, so the height is decided by its own content:
+     `6px` of padding above, `calc(52px * var(--density-factor))` of tab,
+     `6px + var(--ie-safe-bottom)` of padding below and the `1px` top border. The
+     tab's own `min-height` is the only thing in there that moves with density,
+     which is why this one carries the multiplier and `--ie-topbar-height` does
+     not — every control in the top bar is capped at `--ie-tap` and so fits
+     inside its fixed 52px, while the tabs grow.
+
+     It is a layout length, not a colour, so it takes no `forced-colors` or
+     `prefers-contrast` entry: both of those remap *paint*, and this one decides
+     where a box ends. `--ie-topbar-height` and `--ie-inspector-width` below set
+     the precedent. */
+  --ie-tabbar-height: calc(52px * var(--density-factor) + 13px + var(--ie-safe-bottom));
+  /* How much room a bottom sheet actually has: the viewport less the two bars.
+     This is the number the detents below are fractions *of*.
+
+     A detent as a `vh` is a fraction of the window, which is only a fraction of
+     the room by accident — and at a short window the accident is fatal. On a
+     phone held in landscape, 844x390: the top bar takes 52 and the tab bar 65,
+     so `.canvasRegion` is 273px, and `58vh` — 226px — left **47px** of canvas,
+     which fitted a 10x15 image and put eight crop handles and five layer grips
+     on top of each other in a strip narrower than a phone case. The panel was
+     open and the canvas was not there.
+
+     So the fractions are taken of the space the sheet is competing for rather
+     than of the window, and each is then capped so the canvas keeps a floor. On
+     a 390x844 phone the cap never binds and every detent is byte-identical to
+     what it was; it exists for the sizes where the old number was nonsense. */
+  --ie-sheet-space: calc(100dvh - var(--ie-topbar-height) - var(--ie-tabbar-height));
+  /* The smallest strip of canvas worth leaving open: enough for a photo to be
+     recognised and for a corner grip to have somewhere to sit. Below this the
+     sheet stops growing rather than the canvas stopping existing. */
+  --ie-canvas-floor: 148px;
+  /* `min(fraction of the space, everything above the floor)`. A sheet that
+     cannot give the canvas a usable area does not claim to be open. */
+  --ie-sheet-peek: min(34vh, calc(var(--ie-sheet-space) - var(--ie-canvas-floor)));
+  --ie-sheet-medium: min(58vh, calc(var(--ie-sheet-space) - var(--ie-canvas-floor)));
+  --ie-sheet-large: min(90vh, calc(var(--ie-sheet-space) - var(--ie-canvas-floor)));
+  /* The desktop inspector's width, written once. `.canvasRegion.withSheet`
+     reads it as a grid track and `.sheet` reads it as its own `width`, so the
+     column and the panel cannot drift apart the way a `padding-right: 360px`
+     beside a `width: 360px` could.
+
+     It is deliberately NOT multiplied by `--density-factor`. Density moves
+     controls, not the room they live in: the same controls need the same width
+     however tall each one is, and `xlarge` text needs the width more, not less.
+     Scaling it would hand `compact` a 315px panel and `roomy` a 405px one for
+     no gain, and would make the two halves of this layout disagree. */
+  --ie-inspector-width: 360px;
+}
+
+@media (forced-colors: active) {
+  .editor {
+    color-scheme: normal;
+  }
 }
 
 .topBar {
@@ -13,27 +117,58 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: calc(52px + var(--ie-safe-top));
+  min-height: var(--ie-topbar-height);
   padding: var(--ie-safe-top) calc(8px + var(--ie-safe-right)) 0 calc(8px + var(--ie-safe-left));
   background: var(--ie-chrome);
   backdrop-filter: blur(var(--ie-chrome-blur));
   -webkit-backdrop-filter: blur(var(--ie-chrome-blur));
   border-bottom: 1px solid var(--ie-hairline);
-  z-index: 30;
+  z-index: var(--z-chrome);
 }
 .topBarGroup {
   display: flex;
   align-items: center;
   gap: 2px;
+  /* The two icon groups do not shrink, and that is a decision rather than an
+     omission. Each `IconButton` is a `--ie-tap` square; letting the groups flex
+     down would clip the glyphs inside buttons the user has to hit with a thumb.
+     So the title absorbs the shortfall instead — `flex: 1 1 auto; min-width: 0`
+     below hands it every spare pixel and lets it be the only thing that shrinks. */
+  flex: 0 0 auto;
 }
 .topBarTitle {
-  font-size: 14px;
+  font-size: calc(0.875rem * var(--text-scale));
   font-weight: 600;
   color: var(--ie-ink-soft);
   max-width: 40vw;
+  /* The title is the only elastic thing in the bar, so it takes the slack and
+     gives it back first. `min-width: 0` is what lets it shrink at all: a flex item
+     defaults to `min-width: auto`, which is its content width, and `overflow:
+     hidden` is what would have made that zero — the two are stated together so a
+     later edit to either one is visible here rather than silent. */
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Front-truncation, and it is here rather than inline because a media query has
+     to be able to undo it. The RTL box with a `<bdi>` is right in principle: a
+     long filename keeps its *end*, which is the part that identifies it, and
+     "Screenshot 2026-10-03 at 14.22.51" truncated to "…22.51" is useless while
+     "Screenshot 2026-10…" is not.
+
+     It is also wrong on a narrow phone at "Extra large" text, and the audit is
+     right about why: the ellipsis lands immediately beside the overflow button's
+     own three dots, so `…le 2` reads as part of the menu rather than as a
+     truncated word. Below 420px the ellipsis moves to the end, where it is the last
+     thing on the left of a menu button and not the first thing beside it. */
+  direction: rtl;
+  text-align: left;
+}
+@media (max-width: 420px) {
+  .topBarTitle {
+    direction: ltr;
+  }
 }
 .doneButton {
   border: none;
@@ -41,7 +176,7 @@
   color: var(--ie-accent-bright);
   font: inherit;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--font-xs);
   min-height: var(--ie-tap);
   padding: 0 12px;
   cursor: pointer;
@@ -51,20 +186,81 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
+}
+
+/* The editor's copy of the shared skip link (see `base.css`), so the reveal
+   clears the 52px top bar instead of covering the close button. */
+.skipLink {
+  position: absolute;
+  left: -9999px;
+  top: var(--ie-skip-top);
+  z-index: var(--z-skip);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ie-accent-bright, #38b28c);
+  color: var(--on-accent-bright);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skipLink:focus {
+  left: 12px;
+}
+.skipLink:focus-visible {
+  outline: 3px solid var(--ie-ink);
+  outline-offset: 2px;
+}
+
+/* The `main` landmark wraps the canvas region (and the import screen), so it
+   has to take over the flex-child role `.canvasRegion` used to play or the
+   canvas collapses to zero height.
+
+   It is also the scroll container for its own overflow, and it has to be rather
+   than the document. The editor shell is `position: fixed; inset: 0`, so
+   `document.scrollingElement` is exactly the viewport height and a wheel event
+   over the import screen had nowhere to scroll to — `scrollHeight ===
+   clientHeight`, however much taller the content was. The import screen is the
+   thing that overflows: on a 1280x900 window `#editor-main` is 848px and its
+   content is 893px, and at 390px it is several times the viewport, so the
+   samples and the Pexels credit below them were unreachable at both sizes.
+
+   `min-height: 0` above is what lets this box be smaller than its content, and
+   it was already there for the canvas; without an `overflow` value it just
+   meant the overflow was painted into the fixed ancestor and clipped. With the
+   workspace loaded nothing overflows — `.canvasRegion` is `flex: 1; min-height:
+   0` and fills the box exactly — so this is inert there rather than a new
+   scroll surface. */
+.editorMain {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.editorMain:focus {
+  outline: none;
+}
+/* A skip link that lands on a landmark moves focus without a Tab press, so the
+   ring is painted inside rather than outside — a 900px outline around the whole
+   canvas is a visual, not a cue. */
+.editorMain:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ie-accent-bright, #38b28c);
 }
 
 .tabBar {
   display: flex;
   gap: 4px;
   overflow-x: auto;
-  padding: 6px calc(8px + var(--ie-safe-left)) calc(6px + var(--ie-safe-bottom)) calc(8px + var(--ie-safe-right));
+  padding: 6px calc(8px + var(--ie-safe-right)) calc(6px + var(--ie-safe-bottom))
+    calc(8px + var(--ie-safe-left));
   background: var(--ie-chrome);
   backdrop-filter: blur(var(--ie-chrome-blur));
   -webkit-backdrop-filter: blur(var(--ie-chrome-blur));
   border-top: 1px solid var(--ie-hairline);
   scrollbar-width: none;
-  z-index: 30;
+  z-index: var(--z-tabbar);
 }
 .tabBar::-webkit-scrollbar {
   display: none;
@@ -75,25 +271,45 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  min-width: 62px;
-  min-height: 52px;
+  /* `flex: 0 0 auto` so the *label* decides the tab's width and `min-width` is
+     only the floor for the short ones. As a plain flex item with the default
+     `flex-shrink: 1`, a tab shrank to its 62px floor while its label was wider
+     than that — "Background" is 68px of text in a 46px content box — and
+     `.tab`'s `overflow: hidden` below cut it off at both ends, so the longest
+     tool name in the bar was the one you could not read. The row scrolls anyway
+     at a phone width, so the extra 22px costs nothing but the scroll. */
+  flex: 0 0 auto;
+  min-width: calc(62px * var(--density-factor));
+  min-height: calc(52px * var(--density-factor));
   padding: 4px 8px;
   border: none;
   background: transparent;
   color: var(--ie-ink-soft);
   font: inherit;
-  font-size: 10.5px;
-  border-radius: 10px;
+  font-size: var(--font-2xs);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
 }
 .tab svg {
-  width: 22px;
-  height: 22px;
+  width: calc(22px * var(--icon-scale));
+  height: calc(22px * var(--icon-scale));
 }
 .tabActive {
-  color: var(--ie-accent-bright);
+  color: var(--ie-ink);
   background: rgba(56, 178, 140, 0.14);
+  background: color-mix(in srgb, var(--ie-accent-bright) 14%, transparent);
+}
+/* The selected tab's *text* cannot be the accent, because the tile behind it is
+   14% of the same accent. Colouring both is a contrast measurement dressed up as
+   a highlight: over the editor's `#121214` the accent reads 5.93:1, and lifting
+   the background to 14% of it pulls that to 4.46:1 on Iris — a 0.9% shortfall
+   that WCAG does not round away, on all thirteen tabs at once. The identity
+   stays where it carries: the icon is still the accent, and the tint behind it
+   still is too. What changes is that the thing a reader actually reads is ink,
+   which measures 12.3:1 on the same tile. */
+.tabActive svg {
+  color: var(--ie-accent-bright);
 }
 
 .importScreen {
@@ -107,27 +323,65 @@
   text-align: center;
 }
 .importTitle {
-  font-size: 22px;
+  font-size: calc(1.375rem * var(--text-scale));
   font-weight: 700;
   margin: 0;
 }
 .importDrop {
   width: min(520px, 100%);
   border: 2px dashed var(--ie-hairline);
-  border-radius: 18px;
+  border-radius: var(--radius-2xl);
   padding: 40px 20px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ie-fill-target);
   cursor: pointer;
   color: var(--ie-ink-soft);
 }
 .importDropActive {
   border-color: var(--ie-accent-bright);
   background: rgba(56, 178, 140, 0.08);
+  background: color-mix(in srgb, var(--ie-accent-bright) 8%, transparent);
+}
+/* An unstyled link inherits the UA's light-mode blue, which measured 1.99:1 on
+   the editor's near-black chrome — the worst-contrast element on a screen that
+   is otherwise a system of greys. */
+.importLink {
+  color: var(--ie-accent-bright);
+  text-underline-offset: 2px;
+}
+.cameraRow {
+  width: min(520px, 100%);
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.cameraButton {
+  width: 100%;
+  min-height: var(--ie-tap);
+  padding: 12px 18px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-full);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: calc(0.875rem * var(--text-scale));
+  cursor: pointer;
 }
 .importHint {
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   color: var(--ie-ink-soft);
   margin: 0;
+}
+/* The one unstyled link on the editor's dark ground, and it is real content a
+   screen-reader user still reads — it credits the photographs. The UA's link
+   colour follows `color-scheme`, which `color-scheme: dark` above now pins
+   correctly; naming the token anyway is deliberate, because a *text* colour
+   should not be at the mercy of a UA substitution the way a scrollbar is. The
+   WebKit `Highlight` substitute this codebase already had to correct once
+   measured 1.49:1, and the same reasoning applies to whatever a UA picks for
+   `-webkit-link`. Under forced colors both halves become `Highlight` /
+   `HighlightText` from the token blocks in `tokens.css`. */
+.importHint a {
+  color: var(--ie-accent-bright);
 }
 .sampleGrid {
   display: flex;
@@ -138,9 +392,9 @@
 .sampleItem {
   width: 120px;
   border: 1px solid var(--ie-hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--ie-fill-sunken);
   color: var(--ie-ink);
   cursor: pointer;
   padding: 0;
@@ -155,14 +409,14 @@
 .sampleItem span {
   display: block;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: var(--font-2xs);
   color: var(--ie-ink-soft);
 }
 .primaryButton {
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--ie-accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   padding: 12px 22px;
@@ -170,8 +424,8 @@
   cursor: pointer;
 }
 .errorText {
-  color: #ff6b7a;
-  font-size: 13px;
+  color: var(--danger);
+  font-size: calc(0.8125rem * var(--text-scale));
 }
 
 .jobBar {
@@ -180,25 +434,25 @@
   left: 0;
   right: 0;
   height: 3px;
-  z-index: 35;
+  z-index: var(--z-job);
   background: rgba(255, 255, 255, 0.1);
 }
 .jobBarFill {
   height: 100%;
   background: var(--ie-accent-bright);
-  transition: width 0.2s ease;
+  transition: width calc(var(--dur-base) * var(--motion-factor)) var(--ease-standard);
 }
 .jobLabel {
   position: absolute;
   top: 42px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 35;
+  z-index: var(--z-job);
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: var(--ie-on-scrim);
   padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-2xs);
 }
 
 .resumeCard {
@@ -208,26 +462,26 @@
   width: min(420px, 100%);
   padding: 12px;
   border: 1px solid var(--ie-hairline);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  background: var(--ie-fill-sunken);
   text-align: left;
 }
 .resumeCard img {
   width: 56px;
   height: 56px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 .resumeCard p {
   margin: 0;
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   color: var(--ie-ink-soft);
 }
 
 .helpOverlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-overlay);
   background: rgba(0, 0, 0, 0.72);
   display: flex;
   align-items: center;
@@ -237,11 +491,107 @@
 .helpPanel {
   background: var(--ie-chrome-solid);
   border: 1px solid var(--ie-hairline);
-  border-radius: 16px;
+  /* `--radius-md`, not `--radius-xl`. This is the third surface anchored in the
+     same corner — the overflow menu and the appearance panel are both
+     `--radius-md` on the same hairline and the same `--ie-chrome-solid` — and a
+     wider radius on the one that is a full-height modal is the clearest signal that
+     three designs were shipped where one was meant. */
+  border-radius: var(--radius-md);
   padding: 20px 24px;
   max-width: 420px;
   width: 100%;
   color: var(--ie-ink);
+  max-height: calc(100vh - 48px - var(--ie-safe-top) - var(--ie-safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /*
+   * The scroll affordance, and it is a real one rather than a hint: at 1280x900 the
+   * diagnostics `<pre>` alone puts this panel's content at 1373px in an 850px box, so
+   * the last line was cut mid-glyph with nothing on screen saying there was more.
+   *
+   * `position: sticky` rather than `absolute`, and that is the whole mechanism: an
+   * absolutely positioned fade inside a scrolling box scrolls *with* the content,
+   * which is the one thing a fade must not do, whereas a sticky element stays pinned
+   * to the scrollport until the content reaches it. `HelpOverlay` renders the top
+   * fade first and the bottom fade last, each with a negative margin so it costs no
+   * layout, and hides whichever one has nothing to fade.
+   */
+  --help-fade-down: linear-gradient(to bottom, transparent, var(--ie-chrome-solid));
+  --help-fade-up: linear-gradient(to top, transparent, var(--ie-chrome-solid));
+}
+/*
+ * No ring on the panel, and this is the audit's sharpest finding: the panel is
+ * `tabIndex={-1}` and is focused by script when the overlay opens, and
+ * `base.css`'s `:where(button, [tabindex]):focus-visible` rule matches it — so a
+ * permanent 2px accent-coloured ring was drawn around the whole modal from the
+ * moment it appeared. Accent-coloured, hairline-inset, on a dark box: it reads as
+ * an error box, and an error box is the last thing a help overlay should look like.
+ *
+ * `:where()` carries zero specificity, so this class wins on its own; the state is
+ * restated for `:focus` as well as `:focus-visible` so the ring cannot come back by
+ * another route.
+ *
+ * Nothing is lost. The panel is a `role="dialog"` with `aria-modal`, its heading is
+ * announced with it, and the first Tab lands on `Close` — so a keyboard user's focus
+ * is visible on the only control in the panel the moment they move. This is the
+ * standard treatment for a container focused programmatically: the dialog's own
+ * border and role say where you are.
+ */
+.helpPanel:focus,
+.helpPanel:focus-visible {
+  outline: none;
+}
+
+/*
+ * The scroll affordance, and it is a real one rather than a hint: at 1280x900 the
+ * diagnostics `<pre>` alone puts this panel's content at 1373px in an 850px box, so
+ * the last line was cut mid-glyph with nothing on screen saying there was more. A
+ * `::after` cannot do it — it scrolls with the content, which is the one thing a
+ * fade must not do — so the two fades are separate absolutely-positioned elements
+ * pinned to the panel's edges, and `HelpOverlay` hides whichever one has nothing to
+ * fade.
+ */
+.helpFadeBottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: block;
+  height: 36px;
+  margin: -36px -24px 0;
+  background: var(--help-fade-down);
+  pointer-events: none;
+}
+.helpFadeTop {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: block;
+  height: 36px;
+  margin: -36px -24px 0 0;
+  background: var(--help-fade-up);
+  pointer-events: none;
+}
+.helpHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.helpClose {
+  flex-shrink: 0;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ie-ink-soft);
+  font: inherit;
+  font-size: var(--font-2xs);
+  min-height: calc(32px * var(--density-factor));
+  padding: 0 10px;
+  cursor: pointer;
+}
+.helpClose:hover {
+  color: var(--ie-ink);
+  background: var(--ie-fill-hover);
 }
 .helpPanel h2 {
   margin: 0 0 10px;
@@ -251,7 +601,7 @@
   grid-template-columns: auto 1fr;
   gap: 6px 16px;
   margin: 0;
-  font-size: 13.5px;
+  font-size: calc(0.84375rem * var(--text-scale));
 }
 .helpPanel dt {
   font-family: ui-monospace, monospace;
@@ -262,41 +612,131 @@
   color: var(--ie-ink-soft);
 }
 
-.moreMenu {
-  position: absolute;
-  top: calc(48px + var(--ie-safe-top));
-  right: 8px;
-  z-index: 50;
-  background: var(--ie-chrome-solid);
-  border: 1px solid var(--ie-hairline);
-  border-radius: 12px;
-  padding: 6px;
-  min-width: 200px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-}
-.moreMenu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--ie-ink);
-  font: inherit;
-  font-size: 14px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  min-height: 42px;
-  cursor: pointer;
-}
-.moreMenu button:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
 @media (min-width: 900px) {
-  .withSheet .canvasRegion {
-    padding-right: 360px;
+  /* The desktop shell is two columns beside each other, not one column with an
+     overlay on it: the canvas, and the inspector. A grid track rather than a
+     `padding-right` gutter, because a gutter is a promise the panel has to keep
+     on its own and the layout's own answer was the only thing keeping it.
+
+     It used to be the gutter, and the panel was `position: fixed` over the
+     viewport — so the track was the one thing standing between the inspector
+     and the top bar's right-hand buttons and the tool tab bar. Now the track is
+     the column and the panel fills it (see `controls.module.css`). */
+  .canvasRegion {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* `withSheet` and `canvasRegion` are both on the same element (Editor.tsx:
+     the region is the flex child and gets a second class while a tool is
+     open), so this has to be a compound selector. The descendant form could
+     never match and the inspector overlaid the canvas. */
+  .canvasRegion.withSheet {
+    grid-template-columns: minmax(0, 1fr) var(--ie-inspector-width);
   }
   .tab {
-    min-width: 68px;
+    min-width: calc(68px * var(--density-factor));
+  }
+}
+
+/* ---------- Forced colours / increased contrast ---------- */
+
+@media (forced-colors: active) {
+  .topBar,
+  .tabBar {
+    background: Canvas;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .tabActive,
+  .tabActive:hover,
+  .tabActive svg {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .topBarTitle,
+  .importHint,
+  .resumeCard p {
+    color: CanvasText;
+  }
+  .importDrop,
+  .sampleItem,
+  .resumeCard,
+  .helpPanel {
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .primaryButton,
+  .doneButton {
+    border: 1px solid ButtonText;
+    color: ButtonText;
+  }
+  .jobBarFill,
+  .jobBar {
+    background: CanvasText;
+  }
+  .jobLabel {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .errorText {
+    color: LinkText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .topBar,
+  .tabBar,
+  .tab,
+  .sampleItem,
+  .importDrop,
+  .helpPanel {
+    border-color: var(--ie-hairline);
+  }
+  .tabActive {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/**
+ * The two bars that frame the editor are the app's most prominent translucent
+ * surfaces: `--ie-chrome` at 82% over the canvas, with a 20px blur behind them,
+ * on both the top and the bottom of the screen at once. `--ie-chrome` is
+ * already flattened to `--ie-chrome-solid`'s own value in `tokens.css`, so all
+ * that is left here is to stop asking for the blur and to take the remaining
+ * scrims — the job bar, the job label, the help overlay — the rest of the way.
+ *
+ * The safe-area `padding` shorthands above are untouched and untouchable: they
+ * are the right/left swap that `appShell.test.ts:56` pins, and none of them is
+ * a translucency.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .topBar,
+  .tabBar {
+    background: var(--ie-chrome-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .tabActive {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+  .importDropActive {
+    background: var(--ie-fill-quiet);
+  }
+  /* 10% white on the canvas is `#202022`; the job bar is a 3px line, so what
+     matters is that it stops being a blend of whatever is scrolling under it. */
+  .jobBar {
+    background: #202022;
+  }
+  .jobLabel {
+    background: #000;
+  }
+  .helpOverlay {
+    background: #000;
   }
 }

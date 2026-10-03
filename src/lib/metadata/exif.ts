@@ -1,8 +1,19 @@
-export type MetadataPolicy = 'strip' | 'orientation' | 'all';
+import {
+  isJfifApp0,
+  isJpeg,
+  JPEG_APP0,
+  JPEG_APP15,
+  JPEG_COM,
+  walkJpeg,
+  type JpegPart,
+} from './jpeg'
+import type { MetadataPolicy } from './policy'
+import { applyCopyPlan, type CopyPiece, type CopyPlan } from './png'
+import { buildTiff, readTiffOrientation, TIFF_TAG_ORIENTATION, TIFF_TYPE_SHORT } from './tiff'
 
-function isJpeg(bytes: Uint8Array): boolean {
-  return bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
-}
+export type { MetadataPolicy }
+
+const EXIF_HEADER = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0x00, 0x00])
 
 function isExifApp1(bytes: Uint8Array, dataStart: number, dataEnd: number): boolean {
   return (
@@ -13,136 +24,108 @@ function isExifApp1(bytes: Uint8Array, dataStart: number, dataEnd: number): bool
     bytes[dataStart + 3] === 0x66 &&
     bytes[dataStart + 4] === 0x00 &&
     bytes[dataStart + 5] === 0x00
-  );
+  )
 }
 
-function readOrientation(bytes: Uint8Array, dataStart: number, dataEnd: number): number | null {
-  const tiff = dataStart + 6;
-  if (tiff + 8 > dataEnd) return null;
-
-  const little = bytes[tiff] === 0x49 && bytes[tiff + 1] === 0x49;
-  const big = bytes[tiff] === 0x4d && bytes[tiff + 1] === 0x4d;
-  if (!little && !big) return null;
-
-  const readU16 = (at: number): number =>
-    little ? bytes[at] | (bytes[at + 1] << 8) : (bytes[at] << 8) | bytes[at + 1];
-  const readOffset = (at: number): number =>
-    little
-      ? (bytes[at] |
-          (bytes[at + 1] << 8) |
-          (bytes[at + 2] << 16) |
-          (bytes[at + 3] << 24)) >>>
-        0
-      : ((bytes[at] << 24) |
-          (bytes[at + 1] << 16) |
-          (bytes[at + 2] << 8) |
-          bytes[at + 3]) >>>
-        0;
-
-  const ifd = tiff + readOffset(tiff + 4);
-  if (ifd + 2 > dataEnd) return null;
-  const count = readU16(ifd);
-  for (let i = 0; i < count; i += 1) {
-    const entry = ifd + 2 + i * 12;
-    if (entry + 12 > dataEnd) return null;
-    if (readU16(entry) === 0x0112) return readU16(entry + 8);
-  }
-  return null;
+/**
+ * Does this segment carry metadata rather than image structure? APP0/JFIF holds
+ * the pixel density and stays (the DPI writer needs it); every other APPn and
+ * the COM marker is provenance the user asked to remove.
+ */
+function isMetadataSegment(
+  bytes: Uint8Array,
+  part: Extract<JpegPart, { kind: 'segment' }>,
+): boolean {
+  if (part.marker === JPEG_COM) return true
+  if (part.marker < JPEG_APP0 || part.marker > JPEG_APP15) return false
+  if (part.marker === JPEG_APP0 && isJfifApp0(bytes, part.start, part.end)) return false
+  return true
 }
 
-function minimalExifApp1(orientation: number): Uint8Array {
-  const value = orientation & 0xffff;
-  const chunk = new Uint8Array(36);
-  chunk[0] = 0xff;
-  chunk[1] = 0xe1;
-  chunk[2] = 0x00;
-  chunk[3] = 0x22;
-  chunk.set([0x45, 0x78, 0x69, 0x66, 0x00, 0x00], 4);
+function orientationApp1(orientation: number): Uint8Array {
+  const tiff = buildTiff([
+    { tag: TIFF_TAG_ORIENTATION, type: TIFF_TYPE_SHORT, values: [orientation & 0xffff] },
+  ])
+  const payload = new Uint8Array(EXIF_HEADER.length + tiff.length)
+  payload.set(EXIF_HEADER, 0)
+  payload.set(tiff, EXIF_HEADER.length)
 
-  const tiff = 10;
-  chunk[tiff] = 0x49;
-  chunk[tiff + 1] = 0x49;
-  chunk[tiff + 2] = 0x2a;
-  chunk[tiff + 3] = 0x00;
-  chunk[tiff + 4] = 0x08;
-  chunk[tiff + 8] = 0x01;
-
-  const entry = tiff + 10;
-  chunk[entry] = 0x12;
-  chunk[entry + 1] = 0x01;
-  chunk[entry + 2] = 0x03;
-  chunk[entry + 4] = 0x01;
-  chunk[entry + 8] = value & 0xff;
-  chunk[entry + 9] = (value >> 8) & 0xff;
-  return chunk;
+  const chunk = new Uint8Array(4 + payload.length)
+  chunk[0] = 0xff
+  chunk[1] = 0xe1
+  const length = payload.length + 2
+  chunk[2] = (length >> 8) & 0xff
+  chunk[3] = length & 0xff
+  chunk.set(payload, 4)
+  return chunk
 }
 
 export function containsExif(bytes: Uint8Array): boolean {
-  if (!isJpeg(bytes)) return false;
+  const walk = walkJpeg(bytes)
+  if (!walk.ok) return false
+  return walk.parts.some(
+    (part) =>
+      part.kind === 'segment' &&
+      part.marker === 0xe1 &&
+      isExifApp1(bytes, part.dataStart, part.end),
+  )
+}
 
-  let offset = 2;
-  while (offset + 4 <= bytes.length) {
-    if (bytes[offset] !== 0xff) return false;
-    const marker = bytes[offset + 1];
-    if (marker === 0xda || marker === 0xd9) return false;
-    if (marker >= 0xd0 && marker <= 0xd7) {
-      offset += 2;
-      continue;
-    }
-    const length = (bytes[offset + 2] << 8) | bytes[offset + 3];
-    if (length < 2 || offset + 2 + length > bytes.length) return false;
-    if (marker === 0xe1 && isExifApp1(bytes, offset + 4, offset + 2 + length)) return true;
-    offset += 2 + length;
+/**
+ * Work out the exact output of `stripJpegMetadata` before allocating anything:
+ * an ordered list of verbatim spans and literal replacement chunks, plus the
+ * total length they add up to. Returns null when the policy is a plain copy
+ * (`all`) or the stream is not a well-formed JPEG.
+ *
+ * The previous implementation pushed every surviving byte into a `number[]`
+ * one at a time, so a 10 MB export allocated a ten-million-element array and
+ * a second full copy before a single `Uint8Array` was created.
+ */
+export function planJpegCopy(bytes: Uint8Array, policy: MetadataPolicy): CopyPlan | null {
+  if (policy === 'all') return null
+  if (!isJpeg(bytes)) return null
+
+  const walk = walkJpeg(bytes)
+  if (!walk.ok) return null
+
+  const pieces: CopyPiece[] = []
+  let length = 0
+  const pushSpan = (start: number, end: number) => {
+    pieces.push({ kind: 'span', start, end })
+    length += end - start
   }
-  return false;
+  let wroteOrientation = false
+
+  pushSpan(0, 2)
+  for (const part of walk.parts) {
+    if (part.kind === 'scan') {
+      pushSpan(part.start, bytes.length)
+      break
+    }
+    if (part.kind === 'fill' || part.kind === 'marker') {
+      pushSpan(part.start, part.end)
+      continue
+    }
+    if (!isMetadataSegment(bytes, part)) {
+      pushSpan(part.start, part.end)
+      continue
+    }
+
+    const exif = part.marker === 0xe1 && isExifApp1(bytes, part.dataStart, part.end)
+    if (!exif || policy !== 'orientation' || wroteOrientation) continue
+    const orientation = readTiffOrientation(bytes, part.dataStart + 6, part.end)
+    if (orientation === null) continue
+    const replacement = orientationApp1(orientation)
+    pieces.push({ kind: 'bytes', bytes: replacement })
+    length += replacement.length
+    wroteOrientation = true
+  }
+
+  return { length, pieces }
 }
 
 export function stripJpegMetadata(bytes: Uint8Array, policy: MetadataPolicy): Uint8Array {
-  const copy = new Uint8Array(bytes);
-  if (policy === 'all') return copy;
-  if (!isJpeg(copy)) return copy;
-
-  const out: number[] = [copy[0], copy[1]];
-  let offset = 2;
-  let wroteOrientation = false;
-
-  while (offset + 2 <= copy.length) {
-    if (copy[offset] !== 0xff) return copy;
-    const marker = copy[offset + 1];
-
-    if (marker === 0xda || marker === 0xd9) {
-      for (let i = offset; i < copy.length; i += 1) out.push(copy[i]);
-      return new Uint8Array(out);
-    }
-    if (marker >= 0xd0 && marker <= 0xd7) {
-      out.push(copy[offset], copy[offset + 1]);
-      offset += 2;
-      continue;
-    }
-    if (offset + 4 > copy.length) return copy;
-
-    const length = (copy[offset + 2] << 8) | copy[offset + 3];
-    if (length < 2 || offset + 2 + length > copy.length) return copy;
-
-    const dataStart = offset + 4;
-    const segEnd = offset + 2 + length;
-    const exif = marker === 0xe1 && isExifApp1(copy, dataStart, segEnd);
-
-    if (exif && policy === 'strip') {
-      // dropped
-    } else if (exif && policy === 'orientation') {
-      if (!wroteOrientation) {
-        const orientation = readOrientation(copy, dataStart, segEnd) ?? 1;
-        const minimal = minimalExifApp1(orientation);
-        for (let i = 0; i < minimal.length; i += 1) out.push(minimal[i]);
-        wroteOrientation = true;
-      }
-    } else {
-      for (let i = offset; i < segEnd; i += 1) out.push(copy[i]);
-    }
-
-    offset = segEnd;
-  }
-
-  return new Uint8Array(out);
+  const plan = planJpegCopy(bytes, policy)
+  if (!plan) return new Uint8Array(bytes)
+  return applyCopyPlan(bytes, plan)
 }

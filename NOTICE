@@ -1,0 +1,142 @@
+NOTICE
+======
+
+This project is MIT licensed (see LICENSE). That licence covers this project's
+own source and nothing else. The application is a bundle: it also ships
+third-party fonts, third-party JavaScript and one third-party machine-learning
+model, each under its own terms. This file, `src/lib/licenses.ts` and
+`public/licenses.html` are that attribution.
+
+A user-reachable copy of this list is at `/licenses.html`, linked from the Hub
+footer and from the crash screen. The crash screen is linked deliberately: a
+user whose app broke is exactly the person who needs to say what they were
+running, and the build identifier is printed beside the link.
+
+THE TABLE IS A GATE, NOT A CHORE
+---------------------------------
+
+`src/lib/licenses.ts` declares every bundled work with its version, its
+licence, its upstream URL, and why it is bundled. Three checks keep it
+complete, and all three fail rather than warn:
+
+  * Every name in package.json's `dependencies` must have an entry, and every
+    entry marked as a direct dependency must still be a declared one. Adding a
+    dependency without adding it here fails `npm run assets:check`, which
+    `npm run build` runs before it compiles anything.
+  * Every font pinned in `models.lock.json` must have an entry whose licence
+    string matches the lock. The font licences are copied from the lock, which
+    is the manifest that already pins each file's size and sha256 — they are
+    never retyped, because a licence string typed by hand is a licence string
+    that is eventually wrong, and a wrong licence string is worse than none.
+  * Every entry must appear in `public/licenses.html`, so the page a user reads
+    cannot lag the table the build trusts.
+
+`npm run test:coverage` is not the gate for any of this; the unit suite in
+`src/components/ui/licenses.test.ts` and `scripts/verify-assets.mjs` are.
+
+ONE UNRESOLVED DECISION, NOT A LIST OF CREDITS
+-----------------------------------------------
+
+`@imgly/background-removal@1.7.0` is AGPL-3.0. The package's `LICENSE.md`
+opens with the GNU Affero General Public License v3 and there is no MIT
+anywhere in it. It is a runtime dependency, dynamically imported by the
+Background tool, linked into the same bundle as this application's own MIT
+code.
+
+An earlier revision of this file said that "anyone redistributing this build
+should read the upstream licence before shipping it". That is advice. Advice
+discharges an obligation under no licence at all, and repeating it here would
+have made this file look like compliance while changing nothing. What follows
+is the obligation itself and the decision that has not been made.
+
+WHO OWES WHAT
+-------------
+
+An end user who merely runs the hosted app is a USER of the AGPL, not a
+conveyer. Running it is not distribution, so the everyday visitor owes
+nothing and this section is not addressed to them.
+
+Anyone who DISTRIBUTES this build is conveying a combined work — this
+application plus the AGPL library linked into it — and owes the corresponding
+source under AGPL section 5(a). Section 13 additionally brings a hosted
+MODIFIED deployment into scope, so "it only runs on GitHub Pages" is a
+distribution question rather than a way out of one. The library's own weights
+are fetched from imgly's CDN at runtime and are not in this repository; that
+narrows what is bundled, not what is owed for the bundle.
+
+THE THREE OPTIONS, AND WHAT EACH COSTS
+--------------------------------------
+
+This repository does not choose between them. The choice is an owner's
+decision about licensing, hosting and product scope, and it belongs to
+somebody who can answer those questions. It is recorded here, and rendered on
+`/licenses.html`, so that it cannot be lost by being unwritten.
+
+  1. OBTAIN PERMISSION. Ask imgly for a commercial licence, for the cut-out to
+     be relicensed, or for an explicit exemption. It may be granted and it may
+     not, on their timetable rather than ours, and until it is in writing the
+     obligation stands. Cost: an unknown amount of waiting, and no guarantee.
+     Nothing else in the tree has to change while the request is outstanding.
+
+  2. REPLACE THE DEPENDENCY. Implement or license background removal another
+     way and drop the package. This is the only option that ends the
+     obligation by removing its cause. Cost: a matting model and a runtime, and
+     the manual background-replacement path that already exists is not a
+     cut-out — it needs a matte to show through, and the matte is what this
+     library produces. The Background tool cannot ship in its current form
+     without it.
+
+  3. PUBLISH THE CORRESPONDING SOURCE. Oblige under section 5(a) rather than
+     asking for or avoiding anything: release this application's complete
+     corresponding source alongside every distribution, including the build
+     scripts and the modifications a recipient makes. This project's own code
+     is MIT and stays MIT; the AGPL reaches only the combined work. Cost: an
+     ongoing obligation, and the loss of the ability to distribute the build as
+     a closed product.
+
+Until one of those is chosen, the accurate statement is the one above: the
+obligation exists and is unmet for anyone who conveys this build.
+
+TWO OBLIGATIONS THAT ARE NOT "ADD A CREDIT LINE"
+-----------------------------------------------
+
+1. Thirteen of the fourteen bundled fonts are OFL 1.1.
+
+   Each shipped woff2 is the latin or latin-ext subset Google Fonts published,
+   copied byte-for-byte and verified against the sha256 pinned in
+   `models.lock.json`. Nothing here is subset, repacked or renamed by this
+   project. Two clauses of OFL 1.1 follow from that:
+
+     - Section 2 requires a copy of the licence to accompany every copy of the
+       Font Software. `public/fonts/OFL-1.1.txt` is that copy, and it sits
+       beside the woff2 files rather than behind a link. The one Apache-2.0
+       font, Roboto Mono, is covered the same way by
+       `public/fonts/Apache-2.0.txt` (Apache-2.0 section 4(a)).
+
+     - Section 3 forbids a Modified Version from using the Reserved Font Name.
+       It is not engaged here, and it is worth being precise about why: no
+       Modified Version is created. The files are Google's own published
+       subsets, unmodified, so the names in them are Google's to use. An
+       earlier revision of this file said a subset is a Modified Version and
+       that the `IE <Family>` rename is what satisfies section 3; that
+       contradicted the bytes and the same paragraph below it.
+
+   The Text panel lists the faces as `IE Inter`, `IE Playfair` and so on. That
+   is the CSS family alias `src/features/layers/fonts.ts` registers, so a
+   machine with Inter installed cannot win the canvas; it is not a rename of the
+   file, whose internal name table still carries the family Google published.
+
+WHAT IS NOT LISTED
+------------------
+
+`devDependencies` are not distributed to a browser and have no entry. The
+transitive packages that a `dependencies` entry drags in are listed, because
+they do ship: `jspdf` lazily imports `html2canvas` and `dompurify`, and reaches
+for `canvg` on `globalThis`, so the first two become separate chunks of the
+build. One of those, `comlink`, is declared as a runtime dependency and
+imported by nothing in `src/`, so it contributes nothing to the bundle; it is
+listed because the table records what `package.json` claims and the gate checks
+that claim in both directions.
+
+The sample photographs reachable from the import screen are credited on that
+screen. They are not bundled in this repository and are not part of this notice.

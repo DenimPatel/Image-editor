@@ -1,0 +1,183 @@
+/* Diagnostics: the crash screen's copy block, and the saved-errors panel that
+   outlives a reload.
+ *
+ * Two surfaces live here on purpose. The report is a plain block of text the
+ * user has to be able to *select*, so it is a `textarea` rather than a styled
+ * `<pre>`: a read-only field can be focused and copied with the keyboard alone,
+ * which is the one path that cannot be taken away by a permission.
+ *
+ * Every length is a named step or carries a multiplier, and the two that a
+ * reader's settings have to reach — the button's box and the type — read
+ * `--ie-tap` and `--font-*`, which are the same tokens the rest of the app
+ * reads. Nothing here is a new scale. */
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.reportNote {
+  margin: 0;
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  color: var(--ie-ink-soft, rgba(235, 235, 245, 0.6));
+}
+
+.reportText {
+  width: 100%;
+  min-height: calc(96px * var(--density-factor));
+  padding: var(--space-2);
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--ie-ink, #f2f2f7);
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.reportStatus {
+  margin: 0;
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  color: var(--ie-ink, #f2f2f7);
+}
+
+/* The copy control. `--ie-tap` rather than a literal so the density preference
+   moves it with every other button in the app, and a fallback that carries the
+   same multiplier so the rule is not quietly wrong where the token is absent. */
+.copyButton {
+  align-self: flex-start;
+  min-height: var(--ie-tap, calc(44px * var(--density-factor)));
+  padding: 0 var(--space-4);
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md);
+  background: var(--ie-accent-bright, #38b28c);
+  color: var(--on-accent-bright, #04140f);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background calc(var(--dur-fast) * var(--motion-factor));
+}
+
+.copyButton:hover {
+  background: var(--ie-ink, #f2f2f7);
+}
+
+/* ---------- Saved errors: what outlives the 3.2-second toast ---------- */
+
+/* Inside `.toastStack`, which sets `pointer-events: none` for the stack. The
+   panel has a real button in it, so it opts back in. */
+.savedErrors {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(360px, calc(100vw - var(--space-8)));
+  /* Lifted clear of the tool tab bar, which is the one thing along the bottom
+     of the editor a reader cannot work without. The figure is `.tabBar`'s own
+     padding either side plus `.tab`'s `min-height` in `editor.module.css`, and
+     it carries the density multiplier because both of those do. The stack's
+     `bottom` already includes the safe-area inset, so it is not repeated here —
+     a rule may not mix a safe-area variable with a density one. */
+  margin-bottom: calc(64px * var(--density-factor));
+  padding: var(--space-3);
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-lg);
+  background: var(--ie-chrome-solid, #1c1c1e);
+  color: var(--ie-on-scrim, #fff);
+  text-align: left;
+  box-shadow: var(--shadow-2);
+}
+
+.savedErrorsHead {
+  margin: 0;
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  color: var(--ie-ink, #f2f2f7);
+}
+
+.savedErrorList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: calc(120px * var(--density-factor));
+  overflow-y: auto;
+}
+
+.savedErrorItem {
+  font-size: var(--font-2xs);
+  line-height: 1.4;
+  color: var(--ie-ink-soft, rgba(235, 235, 245, 0.6));
+  word-break: break-word;
+}
+
+/* The timestamp inherits the message's colour on purpose. It was `--muted`
+   first, which is 6.0:1 on the editor's canvas but only 2.81:1 on this panel's
+   `--ie-chrome-solid` — axe caught it on WebKit, which is what the gate is for.
+   One colour for the whole row means the timestamp cannot drift from the text
+   it is attached to. */
+.savedErrorItem time {
+  margin-right: var(--space-1);
+}
+
+.savedErrorClear {
+  align-self: flex-start;
+  min-height: calc(32px * var(--density-factor));
+  padding: 0 var(--space-3);
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ie-ink, #f2f2f7);
+  font: inherit;
+  font-size: var(--font-2xs);
+  cursor: pointer;
+}
+
+.savedErrorClear:hover {
+  background: var(--ie-fill-hover, rgba(255, 255, 255, 0.08));
+}
+
+@media (forced-colors: active) {
+  .reportText,
+  .savedErrors,
+  .copyButton,
+  .savedErrorClear {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  :where(button, textarea):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .reportNote,
+  .savedErrorItem {
+    color: var(--ie-ink, #f2f2f7);
+  }
+}
+
+/* The report is text a reader has asked to be able to read, and a 45%-black
+   panel composited against whatever is behind it is the same complaint
+   `.crashPre` makes. `--ie-canvas-bg` is the ground the crash panel is drawn
+   on, so the trace loses nothing and stops being a blend. */
+@media (prefers-reduced-transparency: reduce) {
+  .reportText {
+    background: #0a0a0b;
+  }
+  .savedErrors {
+    background: var(--ie-canvas-bg, #121214);
+  }
+}

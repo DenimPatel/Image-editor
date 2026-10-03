@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from 'react'
 
 export function Chip({ children }: { children: ReactNode }) {
-  return <span className="chip">{children}</span>;
+  return <span className="chip">{children}</span>
 }

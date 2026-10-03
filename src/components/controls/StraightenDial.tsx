@@ -1,13 +1,18 @@
-import { DialSlider } from './DialSlider';
+import { DialSlider } from './DialSlider'
 
 export type StraightenDialProps = {
-  value: number;
-  onChange: (value: number) => void;
-  onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
-};
+  value: number
+  onChange: (value: number) => void
+  onInteractionStart?: () => void
+  onInteractionEnd?: () => void
+}
 
-export function StraightenDial({ value, onChange, onInteractionStart, onInteractionEnd }: StraightenDialProps) {
+export function StraightenDial({
+  value,
+  onChange,
+  onInteractionStart,
+  onInteractionEnd,
+}: StraightenDialProps) {
   return (
     <DialSlider
       label="Straighten"
@@ -23,5 +28,5 @@ export function StraightenDial({ value, onChange, onInteractionStart, onInteract
       onInteractionStart={onInteractionStart}
       onInteractionEnd={onInteractionEnd}
     />
-  );
+  )
 }

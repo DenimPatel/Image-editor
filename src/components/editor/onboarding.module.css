@@ -1,0 +1,361 @@
+/*
+ * The first-run orientation, and the quiet trigger that brings it back.
+ *
+ * Tokens only, and every one of the four multipliers earns its place here
+ * because a first-run panel is type, space, motion and a button at once — the
+ * one block on a screen where all four settings have to work or the panel is
+ * unreadable for the person who needs it most.
+ *
+ * `--text-scale` on every size, `--density-factor` on every gap and on the two
+ * hit areas, `--motion-factor` on the one entrance. `--icon-scale` has nothing
+ * to scale because there is no glyph: the panel is four sentences and a button,
+ * and an illustration on a screen that appears before anyone has opened a photo
+ * is decoration pretending to be information.
+ *
+ * The entrance is the only motion in the product that runs before the user has
+ * done anything, which is exactly why `prefers-reduced-motion` is honoured here
+ * twice over: the duration already carries `--motion-factor`, and the media
+ * query below removes the animation outright so the guarantee does not depend on
+ * a global `!important` in another file surviving a refactor.
+ */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(14px * var(--density-factor));
+  background: color-mix(in srgb, var(--ie-canvas-bg) 80%, transparent);
+}
+
+.panel {
+  width: min(34rem, 100%);
+  max-height: calc(100vh - 28px - var(--ie-safe-top) - var(--ie-safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(20px * var(--density-factor)) calc(22px * var(--density-factor));
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-xl);
+  background: var(--ie-chrome-solid);
+  color: var(--ie-ink);
+  text-align: start;
+  animation: onboarding-rise calc(var(--dur-sheet) * var(--motion-factor)) var(--ease-decelerate)
+    both;
+}
+
+/* The panel takes focus when it opens so Escape and Tab land somewhere useful.
+   The ring is painted inside for the same reason `.editorMain` paints its own
+   in: an outline around the whole panel is a visual, not a cue about where the
+   keystrokes are going. */
+.panel:focus {
+  outline: none;
+}
+
+.panel:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ie-accent-bright);
+}
+
+@keyframes onboarding-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(8px * var(--density-factor)));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: calc(1.0625rem * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ie-ink);
+}
+
+.points {
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--density-factor));
+  margin: calc(16px * var(--density-factor)) 0 0;
+}
+
+.point {
+  display: grid;
+  gap: calc(3px * var(--density-factor));
+}
+
+.term {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ie-ink);
+}
+
+.detail {
+  margin: 0;
+  font-size: var(--font-xs);
+  line-height: 1.55;
+  /* `--ie-ink-soft` is the app's own secondary-ink token and measures 6.2:1 on
+     the editor's chrome ground, so a sentence nobody chose to read is not held
+     to less contrast than one they did. */
+  color: var(--ie-ink-soft);
+}
+
+/*
+ * Pinned to the bottom of the scrolling panel. The four points are longer than
+ * a phone screen and the whole point of a first-run screen is the one button on
+ * it, so the button must not be the part that is below the fold — a keyboard can
+ * reach it either way, and a thumb cannot. Pinned rather than moved out of the
+ * flow so the panel has one action, not two.
+ */
+.actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(20px * var(--density-factor));
+  /* Opaque, because the panel scrolls underneath it and half-transparent text
+     passing behind a button is unreadable and looks like a rendering fault. */
+  background: var(--ie-chrome-solid);
+}
+
+.dismiss {
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--ie-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  padding: calc(9px * var(--density-factor)) calc(22px * var(--density-factor));
+  min-height: var(--ie-tap);
+  cursor: pointer;
+}
+
+/*
+ * The permanent way back. It is a text button rather than a second heading
+ * because after the first run it is the only thing on this screen that explains
+ * what the editor is, and a heading would compete with the file picker it sits
+ * under. Same accent the top bar's own action takes, so it reads as a link
+ * rather than as a control that was left behind.
+ */
+.trigger {
+  border: none;
+  background: transparent;
+  color: var(--ie-accent-bright);
+  font: inherit;
+  font-size: var(--font-2xs);
+  min-height: calc(32px * var(--density-factor));
+  padding: 0 calc(8px * var(--density-factor));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- the import screen's own copy ---------- */
+
+/*
+ * Three paragraphs the file picker did not have before: what this is, what it
+ * does to a photo, and the one thing that leaves the device. The heading above
+ * them is deliberately short and unchanging — "Edit an image" is the screen's
+ * name — so the sentences below it are the ones carrying weight, and they are
+ * sized apart: the capability set reads as a lede, the disclosure as the
+ * smaller, quieter line it is.
+ */
+
+.lede {
+  max-width: 34rem;
+  margin: 0;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: var(--ie-ink);
+  /* A screen-reader user meets the disclosure next, so the reading order is the
+     order the claims are made in, not the order they are hedged in. */
+  text-wrap: pretty;
+}
+
+.privacy {
+  max-width: 32rem;
+  margin: 0;
+  font-size: var(--font-2xs);
+  line-height: 1.55;
+  color: var(--ie-ink-soft);
+  text-wrap: pretty;
+}
+
+/*
+ * The offline banner belongs to `ImportScreen`, and `editor.module.css` has no
+ * rule for it, so it lives here rather than being inherited from a hint style
+ * that was never meant to carry a status.
+ */
+.offlineBanner {
+  max-width: 34rem;
+  margin: calc(12px * var(--density-factor)) 0 0;
+  padding: calc(8px * var(--density-factor)) calc(12px * var(--density-factor));
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-md);
+  background: var(--ie-fill-sunken);
+  color: var(--ie-ink);
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  text-align: start;
+}
+
+/* ---------- the sample tiles ---------- */
+
+/*
+ * The tiles carry a third line — why that photograph is in the bundle — so they
+ * need a column to put it in. `.sampleItem span` in `editor.module.css` is what
+ * gives the caption its padding, and it would give the note the same block of
+ * padding; `.sampleLabel` and `.sampleNote` are two-class selectors for the same
+ * reason as the resume card below, so the values here win on specificity rather
+ * than on the order the two stylesheets happen to land in.
+ */
+.sampleTile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sampleTile .sampleLabel {
+  padding: calc(6px * var(--density-factor)) calc(8px * var(--density-factor));
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+
+.sampleTile .sampleNote {
+  /* Bottom padding, no top: the caption already supplies the space between the
+     photograph and the label, and a second gap here pushes the note out of the
+     tile's own square. */
+  padding: 0 calc(8px * var(--density-factor)) calc(8px * var(--density-factor));
+  color: var(--ie-ink-soft);
+  font-size: var(--font-2xs);
+  line-height: 1.4;
+  /* 120px-wide tiles wrap a note three or four times deep at every text size;
+     balancing the lines keeps the third of the tile that holds text an even
+     shape rather than a ragged one. */
+  text-wrap: pretty;
+}
+
+@media (forced-colors: active) {
+  .sampleTile .sampleLabel,
+  .sampleTile .sampleNote,
+  .offlineBanner {
+    color: CanvasText;
+  }
+}
+
+/* ---------- the resume card's facts ---------- */
+
+/*
+ * These sit inside `editor.module.css`'s `.resumeCard`, which styles every `p`
+ * it contains with `.resumeCard p` — one class and one element, which outranks a
+ * single class from here. So each rule below is written as a descendant of
+ * `.resumeBody` to win on class count rather than on load order: two classes beat
+ * one class plus one element, so the values here are the ones that ship however
+ * the two stylesheets end up concatenated.
+ */
+.resumeBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Without this a long fact line pushes the flex parent wider than its own
+     `min(420px, 100%)` instead of wrapping inside it. */
+  min-width: 0;
+}
+
+.resumeBody .resumeTitle {
+  color: var(--ie-ink);
+  font-weight: 600;
+  font-size: var(--font-sm);
+  line-height: 1.3;
+}
+
+.resumeBody .resumeFacts {
+  color: var(--ie-ink-soft);
+  font-size: var(--font-2xs);
+  line-height: 1.45;
+}
+
+.resumeBody .resumeRetention {
+  /* A step below the facts on purpose: it is the line that has to be read once,
+     carefully, and the quiet type is what says "this is the catch". */
+  color: var(--ie-ink-soft);
+  font-size: var(--font-2xs);
+  line-height: 1.45;
+  margin-top: calc(2px * var(--density-factor));
+}
+
+.resumeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8px * var(--density-factor));
+  margin-top: calc(10px * var(--density-factor));
+}
+
+@media (prefers-contrast: more) {
+  .resumeBody .resumeRetention {
+    color: var(--ie-ink);
+  }
+}
+
+@media (forced-colors: active) {
+  .resumeBody .resumeTitle,
+  .resumeBody .resumeFacts,
+  .resumeBody .resumeRetention {
+    color: CanvasText;
+  }
+}
+
+/* Belt and braces with `base.css`'s global kill switch, which already removes
+   every animation here with `!important` — but a component's motion should not
+   depend on a rule in another file that anybody could simplify. */
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .scrim {
+    background: var(--ie-canvas-bg);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .detail {
+    color: var(--ie-ink);
+  }
+}
+
+@media (forced-colors: active) {
+  .scrim {
+    background: Canvas;
+  }
+
+  .panel {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+
+  .term,
+  .title,
+  .detail,
+  .trigger {
+    color: CanvasText;
+  }
+
+  .dismiss {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}

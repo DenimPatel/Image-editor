@@ -1,0 +1,128 @@
+.crash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-skip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(24px + var(--ie-safe-top)) 24px calc(24px + var(--ie-safe-bottom));
+  background: var(--ie-canvas-bg, #121214);
+  color: var(--ie-ink, #f2f2f7);
+  overflow-y: auto;
+}
+.crashPanel {
+  width: min(520px, 100%);
+  padding: 24px;
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-xl);
+  background: var(--ie-chrome-solid, #1c1c1e);
+}
+.crashTitle {
+  margin: 0 0 8px;
+  font-size: calc(1.25rem * var(--text-scale));
+}
+.crashContext {
+  margin: 0 0 12px;
+  font-size: calc(0.875rem * var(--text-scale));
+  color: var(--ie-accent-bright, #38b28c);
+}
+.crashBody {
+  margin: 0 0 18px;
+  font-size: calc(0.875rem * var(--text-scale));
+  line-height: 1.6;
+  color: var(--ie-ink-soft, rgba(235, 235, 245, 0.6));
+}
+.crashActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.crashButton,
+.crashPrimary {
+  min-height: var(--ie-tap, 44px);
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ie-hairline, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: var(--ie-ink, #f2f2f7);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.crashPrimary {
+  background: var(--ie-accent-bright, #38b28c);
+  border-color: var(--ie-accent-bright, #38b28c);
+  color: var(--on-accent-bright);
+}
+.crashButton:hover {
+  background: var(--ie-fill-hover);
+}
+.crashDetails {
+  margin-top: 18px;
+  font-size: calc(0.8125rem * var(--text-scale));
+  color: var(--ie-ink-soft, rgba(235, 235, 245, 0.6));
+}
+.crashPre {
+  margin: 8px 0 0;
+  padding: 10px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--ie-ink, #f2f2f7);
+  font-size: var(--font-2xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (forced-colors: active) {
+  .crash {
+    background: Canvas;
+    color: CanvasText;
+  }
+  .crashPanel,
+  .crashPre {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .crashButton,
+  .crashPrimary {
+    background: ButtonFace;
+    border: 1px solid ButtonText;
+    color: ButtonText;
+  }
+  .crashPrimary {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .crashContext {
+    color: Highlight;
+  }
+  :where(button, [tabindex], summary):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .crashBody,
+  .crashContext,
+  .crashDetails {
+    color: var(--ie-ink, #f2f2f7);
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/* The `<pre>` is the only translucent surface in this file, and it is the one
+   that matters most: a stack trace over a 45%-black panel on a near-black
+   ground is text a reader has asked to be able to read, compositing against
+   whatever is behind it. `--ie-canvas-bg` is what it already resolves to, and
+   it is the ground the panel is drawn on, so the trace loses nothing and
+   stops being a blend. */
+@media (prefers-reduced-transparency: reduce) {
+  .crashPre {
+    background: #0a0a0b;
+  }
+}

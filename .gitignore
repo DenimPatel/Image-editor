@@ -17,7 +17,31 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Self-hosted ML weights and LUTs (fetched, never committed; see models.lock.json)
+# Self-hosted ML weights. Never committed — `scripts/fetch-models.mjs` downloads
+# anything pinned in models.lock.json and verifies its sha256.
 public/models/
-public/luts/
-public/fonts/
+
+# public/luts/ and public/fonts/ are NOT ignored: the 24 look strips and the 14
+# woff2 files are committed so `npm run dev` works on a fresh clone and so the
+# test that decodes them can verify the strip layout against LUT3D_FRAG. They are
+# generated (`npm run luts:gen`) and repaired (`npm run models:fetch`), not
+# hand-edited, and `npm run build` fails if either drifts.
+
+# Playwright (D9-F01). `test-results/` holds traces, screenshots and the
+# shader-parity diff image; `playwright-report/` is the generated HTML report.
+# Both are per-run, and both are large enough to dominate a diff.
+test-results/
+playwright-report/
+blob-report/
+.playwright-mcp/
+.playwright/
+
+# Visual-audit screenshots. `shots/` is scratch from a whole-product audit — a
+# few dozen full-viewport PNGs, regenerable by opening the app again, and not
+# referenced by anything. Ignored rather than deleted because the next audit
+# writes another one, and AGENTS.md invariant 10 is about directories that exist
+# on disk while nothing tracks them: the day somebody wants to commit 24 MB of
+# screenshots by accident, `.gitignore` is the place that has already said no.
+# A screenshot that *is* a test artefact belongs in `test-results/`, which
+# Playwright owns and `npm run test:e2e` wipes for itself.
+shots/

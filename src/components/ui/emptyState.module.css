@@ -1,0 +1,85 @@
+/*
+ * One empty state for the whole editor.
+ *
+ * It replaced three voices: a heading plus a body, a bare paragraph with no
+ * heading, and a paragraph in the hint size with a button under it. Everything
+ * here is a token that already exists, which is why there is no colour literal
+ * to add to `tokens.css` and no forced-colors entry beyond the two system
+ * colours below.
+ *
+ * The quiet fill and the hairline are what make four panels look like the same
+ * design rather than four coincidences: without them the component is a title
+ * and a paragraph, and a paragraph is not a design.
+ */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-md);
+  background: var(--ie-fill-quiet);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ie-ink);
+}
+
+.emptyBody {
+  margin: 0;
+  max-inline-size: 34em;
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  color: var(--ie-ink-soft);
+}
+
+.emptyBody > :first-child {
+  margin-top: 0;
+}
+
+.emptyBody > :last-child {
+  margin-bottom: 0;
+}
+
+/*
+ * The way out. A wrapper rather than a margin on the action itself, because
+ * three of the five call sites hand over a button that already carries its own
+ * variant class and two of them would otherwise need one for a gap.
+ */
+.emptyAction {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (forced-colors: active) {
+  .empty {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .emptyTitle {
+    color: CanvasText;
+  }
+  .emptyBody {
+    color: CanvasText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .empty {
+    border-color: var(--ie-hairline);
+  }
+  .emptyTitle {
+    color: var(--ie-ink);
+  }
+  .emptyBody {
+    color: var(--ie-ink);
+  }
+}

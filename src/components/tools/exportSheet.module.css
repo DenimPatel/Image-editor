@@ -1,0 +1,244 @@
+/**
+ * The export panel's own layout.
+ *
+ * The panel lives in a 360 px column (`--ie-inspector-width`, editor.module.css)
+ * and its content measured 690–706 px wide, so the inspector scrolled sideways
+ * to reach controls that were always on screen. Two rows caused it and neither
+ * wrapped:
+ *
+ *   1. The seven multi-size width chips were a `.row` — `display: flex` with no
+ *      `flex-wrap` — at ~93 px each. Seven of them is 699 px whatever the
+ *      column is.
+ *   2. `SegmentedControl` is `inline-flex` and its buttons are
+ *      `white-space: nowrap`, so "No resize | Width | Height | Long edge |
+ *      Percent" has a floor of ~381 px at the default text scale. It fits at
+ *      1280 px wide *only* because the inspector does not grow; the number was
+ *      never going to be right, it just happened to sit inside a scrollbar.
+ *
+ * So this file does two things and nothing else: every row that can hold more
+ * content than the column can show wraps, and every box that would otherwise be
+ * laid out at its own intrinsic width is told to answer to the column instead.
+ * Nothing here scrolls, on purpose — a horizontally scrolling settings surface
+ * is the failure this panel was rebuilt to stop, and the only thing that stops
+ * it coming back is a measurement, which lives in the e2e suite (see
+ * `e2e/journey.export-width.spec.ts` in the handoff).
+ *
+ * Every value that can move with the user's density, text size or icon size
+ * moves with it: `--text-scale` on type, `--density-factor` on hit heights,
+ * `--icon-scale` on the five action glyphs, `--motion-factor` on the one
+ * transition. The column's own width deliberately is *not* multiplied — density
+ * moves controls, not the room they live in, and `--ie-inspector-width` says
+ * the same about itself in a long comment.
+ */
+
+.panel {
+  /* A grid/flex child defaults to `min-width: auto`, which refuses to shrink
+     below its content; on a block child inside `.sheetBody` this is what keeps
+     the panel from being the thing that decides how wide the column is. */
+  min-width: 0;
+  max-width: 100%;
+  /* `anywhere` rather than `break-word` because the strings that need to break
+     are tokens and file names — `{width}`, `holiday-4000x3000-sizes.zip` —
+     which contain no spaces for `break-word` to find. */
+  overflow-wrap: anywhere;
+}
+
+/**
+ * A `SegmentedControl` inside a 360 px column.
+ *
+ * `.segments` is the wrapper the panel puts around the control, and the two
+ * descendant rules reach *through* it into the other module's markup. That is
+ * deliberate: the control owns its own look, and it is the panel's job to say
+ * how much room it gets, but making the control itself wrap would change every
+ * other segmented control in the app to fix one column.
+ */
+.segments {
+  display: flex;
+  flex-wrap: wrap;
+}
+.segments > * {
+  /* Full-width basis so the control is a block that fills the column. Its own
+     rows now decide where the buttons break — `SegmentedControl` measures the
+     labels and answers with a 3 + 2 rather than a 4 + 1 — so the wrap here is the
+     seatbelt for a control wider than the column, not the layout. */
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.segments > * > button,
+.segments > * > * > button {
+  /* `auto` basis keeps each button at its own text width — that is what the row
+     split is measured on — and the grow shares whatever is left over, so a row of
+     two is not two narrow buttons on an otherwise empty line. The second selector
+     reaches through a row element: a control that wrapped renders one per row. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/** The seven width chips. Wraps; never scrolls. */
+.widths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.widths > * {
+  /* Intrinsic width, so a chip is exactly as wide as its own label and the row
+     breaks instead of squeezing one. `min-width: 0` would let a chip shrink
+     below its text and overflow it, which is the same defect one level down. */
+  flex: 0 0 auto;
+}
+
+/** A labelled number field: resize target, byte cap. */
+.numberRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  margin-top: 8px;
+}
+.numberInput {
+  /* A `type="number"` input has an intrinsic width of about 20 characters and
+     is the one control here that will happily push a row past the column. */
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  color: var(--ie-ink);
+  background: var(--ie-fill-rest);
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-height: calc(40px * var(--density-factor));
+}
+
+.nameRow {
+  min-width: 0;
+}
+.nameInput {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  color: var(--ie-ink);
+  background: var(--ie-fill-rest);
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  min-height: calc(40px * var(--density-factor));
+}
+
+/**
+ * The five actions.
+ *
+ * `flex: 1 1 140px` is the whole trick: two per row at 360 px, three at the
+ * 430 px phone sheet, and never a horizontal scrollbar at any of them because
+ * the basis is a *preference*, not a floor — a button whose label is longer
+ * than the share of the row it lands on still fits, it just takes more of it.
+ */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.actions > button {
+  flex: 1 1 140px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: border-color calc(var(--dur-quick) * var(--motion-factor)) var(--ease-standard);
+}
+.actions svg {
+  flex: 0 0 auto;
+  width: calc(16px * var(--icon-scale));
+  height: calc(16px * var(--icon-scale));
+}
+.cancelButton {
+  color: var(--ie-ink-soft);
+}
+
+/**
+ * What the zip is about to do, said before it does it.
+ *
+ * Seven widths behind one button labelled "Multi-size zip" is seven full
+ * resolution renders, and the panel used to let the user find that out from a
+ * frozen tab. The summary is a claim about work, so it gets a box rather than
+ * another grey line: it is the one thing on the panel the user must read before
+ * committing.
+ */
+.zipSummary {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-quiet);
+  font-size: var(--font-2xs);
+  line-height: 1.55;
+  color: var(--ie-ink-soft);
+}
+.zipSummaryEmphasis {
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+.zipSummaryCaution {
+  color: var(--ie-ink);
+}
+
+/**
+ * The panel's failure notice.
+ *
+ * A toast is the wrong home for a failed export: it is gone in four seconds and
+ * the panel it belongs to is still open. This one is inline, it survives until
+ * the next attempt, and it always ends by pointing at the one control that
+ * cannot fail the same way — Download, which writes the same picture to disk
+ * without asking the browser for anything.
+ */
+.failure {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-quiet);
+  font-size: var(--font-2xs);
+  line-height: 1.55;
+}
+.failureMessage {
+  margin: 0;
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+.failureHint {
+  margin: 4px 0 0;
+  color: var(--ie-ink-soft);
+}
+
+/**
+ * Both boxes above are a brand-coloured border and a tinted fill, so forced
+ * colours replaces the palette wholesale and leaves a pairing nobody checked.
+ * The system pairs are the ones defined to contrast: `CanvasText` on `Canvas`.
+ */
+@media (forced-colors: active) {
+  .zipSummary,
+  .failure {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    forced-color-adjust: none;
+  }
+  .failure {
+    border-left-width: 3px;
+  }
+  .zipSummary,
+  .zipSummaryEmphasis,
+  .zipSummaryCaution,
+  .failureMessage,
+  .failureHint {
+    color: CanvasText;
+  }
+}

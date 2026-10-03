@@ -31,9 +31,9 @@
   gap: 8px;
   background: var(--accent-tint);
   color: var(--accent-ink);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 7px 14px 7px 10px;
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   font-weight: 600;
 }
 
@@ -47,14 +47,14 @@
 }
 
 .hero h1 {
-  font-size: clamp(38px, 6vw, 60px);
+  font-size: var(--font-hero);
   line-height: 1.06;
   max-width: 20ch;
 }
 
 .hero .lede {
   color: var(--ink-soft);
-  font-size: clamp(16px, 2vw, 18px);
+  font-size: var(--font-lede);
   max-width: 56ch;
   margin: 0;
 }
@@ -80,9 +80,9 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Manrope', 'IE Self-Hosted', system-ui, sans-serif;
   font-weight: 700;
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -97,7 +97,7 @@
 }
 
 .section-head h2 {
-  font-size: clamp(28px, 3.4vw, 36px);
+  font-size: var(--font-section);
   margin-top: 10px;
 }
 
@@ -120,14 +120,14 @@
   text-decoration: none;
   color: inherit;
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    transform calc(var(--dur-base) * var(--motion-factor)) var(--ease-standard),
+    box-shadow calc(var(--dur-base) * var(--motion-factor)) var(--ease-standard),
+    border-color calc(var(--dur-base) * var(--motion-factor)) var(--ease-standard);
 }
 
 .tool-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(28, 28, 26, 0.09);
+  box-shadow: var(--shadow-3);
   border-color: #d8d6cb;
 }
 
@@ -136,12 +136,12 @@
 }
 
 .tool-card h3 {
-  font-size: 18px;
+  font-size: calc(1.125rem * var(--text-scale));
 }
 
 .tool-card p {
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: calc(0.90625rem * var(--text-scale));
   margin: 0;
   flex: 1;
 }
@@ -150,16 +150,16 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Manrope', sans-serif;
+  font-family: 'Manrope', 'IE Self-Hosted', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: calc(0.875rem * var(--text-scale));
   color: var(--accent-ink);
 }
 
 .tool-card__arrow {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.18s ease;
+  width: calc(16px * var(--icon-scale));
+  height: calc(16px * var(--icon-scale));
+  transition: transform calc(var(--dur-quick) * var(--motion-factor)) var(--ease-standard);
 }
 
 .tool-card:hover .tool-card__arrow {
@@ -190,8 +190,8 @@
   opacity: 0;
   transform: translateY(16px);
   transition:
-    opacity 0.6s ease,
-    transform 0.6s ease;
+    opacity calc(var(--dur-slow) * var(--motion-factor)) var(--ease-standard),
+    transform calc(var(--dur-slow) * var(--motion-factor)) var(--ease-standard);
 }
 
 .reveal.is-visible {
@@ -212,5 +212,115 @@
   gap: 8px;
   padding: 36px 0;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: calc(0.84375rem * var(--text-scale));
+}
+
+/* The licences link and the build identifier are one item, not two: they are
+   the two halves of a bug report, and `space-between` on three flex children
+   would fling them to opposite ends of the row and read as three unrelated
+   claims. Wrapping rather than `nowrap`, because the counts make the line long
+   enough to overflow a phone — a build identifier clipped at the right edge is
+   not an identifier. The link takes the accent rather than the UA's default
+   blue, which is the same correction the Pexels credit link got. */
+.footer-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.footer-counts {
+  color: var(--muted);
+}
+
+.footer-meta a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+.footer-meta a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/**
+ * The small uppercase section labels took `var(--accent)`, which the forced
+ * palette replaces with the system accent — a pale blue — while the page stays
+ * `Canvas`. On WebKit's light high-contrast theme that is `#b3d7fe` on
+ * `#ffffff`: 1.49:1 against a 4.5:1 requirement for 13px bold text.
+ *
+ * It has to live here rather than in `base.css` next to the other forced-colors
+ * rules: a media query adds no specificity and no cascade weight, and
+ * `index.css` loads `hub.css` after `base.css`, so an override written in
+ * `base.css` simply loses to the rule it was meant to replace.
+ */
+@media (forced-colors: active) {
+  .eyebrow {
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+  .eyebrow::before {
+    background: CanvasText;
+  }
+  .pill,
+  .status-pill {
+    border: 1px solid CanvasText;
+  }
+  /**
+   * The status pill was the same 1.49:1 failure as the eyebrow, reached one step
+   * later. `--accent-tint` becomes `Canvas` and `--accent-ink` becomes
+   * `HighlightText` under the forced palette — and on the common configuration
+   * those are the *same* colour, because `HighlightText` is defined as the text
+   * colour on `Highlight`, not as the inverse of `Canvas`. A light high-contrast
+   * theme with a white `Canvas` and a white `HighlightText` renders this pill as
+   * white text on a white fill, with only the border carrying it.
+   *
+   * `Canvas` on `CanvasText` is the one pair a system colour scheme guarantees
+   * to be readable, and it is the same answer `.eyebrow` above already gives for
+   * the same reason. The per-accent tint is not available in this mode and was
+   * never going to be: a fill whose whole job is to be legible *as a tint*
+   * cannot also clear 4.5:1, which is why the border above has to stay.
+   */
+  .status-pill {
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+  /**
+   * The footer licence link, which is the same 1.49:1 failure as the eyebrow
+   * one step further down the page. `hub.css:236` gives it `var(--accent)`
+   * because on a normal page the accent is what distinguishes a link from the
+   * grey prose around it; the forced palette turns `--accent` into the system
+   * accent, a pale blue, which on WebKit's light high-contrast theme is
+   * `#b3d7fe` on a white `Canvas`.
+   *
+   * `Canvas` on `CanvasText` is the one pair a system colour scheme guarantees,
+   * and the link is still a link: it is underlined, it is in the tab order, and
+   * `Hub.test.tsx` asserts the href. Contrast is not what makes it a link, so
+   * the fix costs the page nothing.
+   *
+   * Like the eyebrow rule above, this has to be here and not in `base.css`:
+   * `index.css` imports `hub.css` after `base.css`, so an equally specific
+   * override written there loses to the rule it was meant to replace.
+   */
+  .footer-meta a {
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+}
+
+/**
+ * `--accent-tint` is the one accent token whose bar is not 4.5:1. It is a
+ * *fill*: 1.15:1 against the card for the default green, which is deliberately
+ * low, because the tint's job is to say "this is an accent-coloured thing" and
+ * not to be readable. The consequence is that a person asking for more
+ * contrast is being handed a status pill that is 1.15:1 away from the page,
+ * and the honest fix is the same one `base.css` already applies to `.chip`:
+ * give the fill an edge in the current colour. The tint keeps its lightness —
+ * dropping it to `--bg-alt` would grey the pill out and lose the meaning — and
+ * the border is what carries the separation.
+ */
+@media (prefers-contrast: more) {
+  .status-pill {
+    border: 1px solid currentColor;
+  }
 }

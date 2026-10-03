@@ -1,19 +1,40 @@
-import type { ReactNode } from 'react';
-import { BottomSheet } from '../controls/BottomSheet';
-import { useUiStore, type ToolId } from '../../store/uiStore';
-import { AdjustPanel } from '../tools/AdjustPanel';
-import { BackgroundPanel } from '../tools/BackgroundPanel';
-import { CropPanel } from '../tools/CropPanel';
-import { ExportSheet } from '../tools/ExportSheet';
-import { FiltersPanel } from '../tools/FiltersPanel';
-import { DrawPanel, FramePanel, LayersPanel, RedactPanel, StickersPanel, TextPanel } from '../tools/LayerPanels';
-import { PassportPanel } from '../tools/PassportPanel';
-import { PlaceholderPanel } from '../tools/PlaceholderPanel';
+import type { ReactNode } from 'react'
+import { BottomSheet } from '../controls/BottomSheet'
+import { useUiStore, type ToolId } from '../../store/uiStore'
+import { AdjustPanel } from '../tools/AdjustPanel'
+import { BackgroundPanel } from '../tools/BackgroundPanel'
+import { CropPanel } from '../tools/CropPanel'
+import { ExportSheet } from '../tools/ExportSheet'
+import { FiltersPanel } from '../tools/FiltersPanel'
+import {
+  DrawPanel,
+  FramePanel,
+  LayersPanel,
+  RedactPanel,
+  StickersPanel,
+  TextPanel,
+} from '../tools/LayerPanels'
+import { PassportPanel } from '../tools/PassportPanel'
+import { RetouchPanel } from '../tools/RetouchPanel'
+import { EmptyState } from '../ui/EmptyState'
 
+/**
+ * The sheet title, audited against the panel it actually opens.
+ *
+ * Only one of these is not the tab's own name: "Crop & Straighten" is, because
+ * that panel ships a `StraightenDial` next to the crop box, and the shorter tab
+ * name would leave the control unnamed on the way in. "Background" is the other
+ * end of the same fix — it used to read "BG" on the tab, so the sheet renamed
+ * the thing the tab had abbreviated.
+ *
+ * The Looks title is the tab's name for the same reason the tab's name is the
+ * tab's name: the sheet is the panel, and a sheet called "Filters" over a
+ * heading called "LOOKS" asks the user to hold two names for one thing.
+ */
 const TITLES: Record<ToolId, string> = {
   crop: 'Crop & Straighten',
   adjust: 'Adjust',
-  filters: 'Filters',
+  filters: 'Looks',
   retouch: 'Retouch',
   background: 'Background',
   text: 'Text',
@@ -24,78 +45,90 @@ const TITLES: Record<ToolId, string> = {
   layers: 'Layers',
   passport: 'Passport',
   export: 'Export',
-};
+}
 
-const DESCRIPTIONS: Partial<Record<ToolId, string>> = {
-  retouch: 'Skin smoothing, blemish healing and red-eye removal arrive with the portrait tools.',
-  background: 'Remove and replace the background with a real subject matte.',
-  text: 'Add text layers with self-hosted fonts, stroke, shadow and arc.',
-  draw: 'Pressure-aware pen, marker, highlighter and neon brushes.',
-  stickers: 'Built-in sticker set plus your own uploads.',
-  redact: 'Pixelate, blur or cover regions — baked into the exported pixels.',
-  frame: 'Solid, inset, polaroid, film, rounded and shadow-card frames.',
-  layers: 'Reorder, rename and blend layers.',
-  passport: 'Passport photo framing and compliance tools.',
-};
+/**
+ * The empty state a tool falls through to when it has no panel.
+ *
+ * Shown by `EmptyState` for a tool that has no panel yet. Every string here is a
+ * claim about what ships, so none of them may promise a control that does not
+ * exist. A feature that is genuinely absent is named as absent rather than
+ * described in the present tense.
+ *
+ * The table is empty, and it was not always: `retouch` carried a paragraph here
+ * saying the pass was in the pipeline and no control wrote to it — true in both
+ * halves, and it still shipped a tab that looked like a peer of Crop. The panel
+ * now writes the fields, so the entry went with it. A tool only earns an entry
+ * the day it loses its panel, and `ToolSurface.test.tsx` asserts that: a
+ * `\n  <tool>:` line for a tool with a panel is a failure, not a tidiness issue.
+ */
+type ToolEmpty = { title: string; description: string }
+
+const DESCRIPTIONS: Partial<Record<ToolId, ToolEmpty>> = {}
 
 export function ToolSurface({
   source,
   fileName,
   onAuto,
 }: {
-  source: ImageBitmap | null;
-  fileName: string;
-  onAuto: () => void;
+  source: ImageBitmap | null
+  fileName: string
+  onAuto: () => void
 }) {
-  const activeTool = useUiStore((state) => state.activeTool);
-  const detent = useUiStore((state) => state.sheetDetent);
-  const setDetent = useUiStore((state) => state.setSheetDetent);
-  const setActiveTool = useUiStore((state) => state.setActiveTool);
+  const activeTool = useUiStore((state) => state.activeTool)
+  const detent = useUiStore((state) => state.sheetDetent)
+  const setDetent = useUiStore((state) => state.setSheetDetent)
+  const setActiveTool = useUiStore((state) => state.setActiveTool)
 
-  if (!activeTool) return null;
+  if (!activeTool) return null
 
-  let panel: ReactNode;
+  let panel: ReactNode
   switch (activeTool) {
     case 'crop':
-      panel = <CropPanel />;
-      break;
+      panel = <CropPanel />
+      break
     case 'adjust':
-      panel = <AdjustPanel source={source} onAuto={onAuto} />;
-      break;
+      panel = <AdjustPanel source={source} onAuto={onAuto} />
+      break
     case 'filters':
-      panel = <FiltersPanel />;
-      break;
+      panel = <FiltersPanel />
+      break
+    case 'retouch':
+      panel = <RetouchPanel source={source} />
+      break
     case 'background':
-      panel = <BackgroundPanel source={source} />;
-      break;
+      panel = <BackgroundPanel source={source} />
+      break
     case 'text':
-      panel = <TextPanel />;
-      break;
+      panel = <TextPanel />
+      break
     case 'draw':
-      panel = <DrawPanel />;
-      break;
+      panel = <DrawPanel />
+      break
     case 'stickers':
-      panel = <StickersPanel />;
-      break;
+      panel = <StickersPanel />
+      break
     case 'redact':
-      panel = <RedactPanel />;
-      break;
+      panel = <RedactPanel />
+      break
     case 'frame':
-      panel = <FramePanel />;
-      break;
+      panel = <FramePanel />
+      break
     case 'layers':
-      panel = <LayersPanel />;
-      break;
+      panel = <LayersPanel />
+      break
     case 'passport':
-      panel = <PassportPanel source={source} />;
-      break;
+      panel = <PassportPanel source={source} />
+      break
     case 'export':
-      panel = <ExportSheet source={source} fileName={fileName} />;
-      break;
+      panel = <ExportSheet source={source} fileName={fileName} />
+      break
     default:
-      panel = (
-        <PlaceholderPanel description={DESCRIPTIONS[activeTool] ?? 'Coming soon.'} />
-      );
+      // The fallback is a claim too, so it is the weakest one that is still
+      // true: we know there is no panel, and we do not know when one is coming.
+      // "Coming soon." used to be here, which promised a schedule nobody in this
+      // file can keep.
+      panel = <EmptyState {...placeholderFor(activeTool)} />
   }
 
   return (
@@ -108,5 +141,14 @@ export function ToolSurface({
     >
       {panel}
     </BottomSheet>
-  );
+  )
+}
+
+function placeholderFor(tool: ToolId): ToolEmpty {
+  return (
+    DESCRIPTIONS[tool] ?? {
+      title: 'No panel for this tool yet',
+      description: 'Nothing here changes the photo. The other tools still work.',
+    }
+  )
 }

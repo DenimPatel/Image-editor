@@ -1,16 +1,26 @@
 .sectionTitle {
-  font-size: 12px;
+  font-size: var(--font-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ie-ink-soft);
   margin: 14px 0 4px;
 }
+/* A label for one platform inside the "Platform" block — small enough that a
+   screen reader reads it as part of the group, large enough that seven rows of
+   chips do not read as one undifferentiated list. */
+.subhead {
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  color: var(--ie-ink);
+  margin: 10px 0 0;
+}
 .hint {
-  font-size: 12px;
+  font-size: var(--font-2xs);
   color: var(--ie-ink-soft);
   margin: 8px 0 0;
   line-height: 1.5;
 }
+
 .straightenHead {
   margin-top: 14px;
 }
@@ -22,20 +32,36 @@
   margin-top: 12px;
 }
 .textButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--ie-hairline);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ie-fill-rest);
   color: var(--ie-ink);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 9px 14px;
-  min-height: 40px;
+  min-height: calc(40px * var(--density-factor));
   font: inherit;
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   cursor: pointer;
+}
+/* An icon-only `.textButton` — the crop panel's "Swap ratio sides" is the only
+   one, and it is a single `SwapRatioGlyph` and nothing else. Without a size on
+   the `<svg>` there is nothing for the UA's default `300×150` to shrink: it
+   resolved to `0 × 0`, the button rendered as an empty rounded rectangle with
+   an accessible name and no visible mark, and the only thing on the panel that
+   could not be told from a blank space was the one control with nothing but a
+   glyph to identify it by. */
+.textButton svg {
+  flex-shrink: 0;
+  width: calc(18px * var(--icon-scale));
+  height: calc(18px * var(--icon-scale));
 }
 .textButtonPrimary {
   background: var(--ie-accent);
   border-color: var(--ie-accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 .textButton:disabled {
@@ -47,12 +73,107 @@
   gap: 8px;
   align-items: center;
 }
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: calc(40px * var(--density-factor));
+  padding: 6px 10px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-quiet);
+  color: var(--ie-ink);
+  font-size: calc(0.8125rem * var(--text-scale));
+  cursor: pointer;
+}
+.toggle:hover {
+  background: var(--ie-fill-active);
+}
+.toggle input {
+  accent-color: var(--ie-accent);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.error {
+  margin: 6px 0 0;
+  font-size: calc(0.8125rem * var(--text-scale));
+  line-height: 1.4;
+  color: var(--danger);
+}
 .grow {
   flex: 1;
   min-width: 0;
 }
+
+/* The custom-ratio field.
+ *
+ * `.grow` is a width, not a skin, and the crop panel's `W:H` input was the only
+ * bare `<input>` left in a tool panel: with no rule of its own it took the UA
+ * default — `background: #fff`, `color: #000`, `2px inset`, `border-radius: 0`,
+ * 13.33px type — so a white Windows text box sat on the editor's near-black
+ * chrome, and its type ignored `--text-scale` and so ignored the reader's
+ * "Extra large" as well. The same three tokens the rest of the panel uses put it
+ * on the dark ground; the padding is what stops the placeholder sitting flush
+ * against the border, which at 390px was `2px` of it. */
+.grow[type='text'],
+.grow[type='number'],
+textarea.grow,
+select.grow {
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  min-height: calc(40px * var(--density-factor));
+  padding: 0 10px;
+}
+
+/* The other two form controls, which the rule above was written for and never
+ * reached.
+ *
+ * `.grow[type='text'], .grow[type='number']` is an *attribute* selector, and a
+ * `<textarea>` and a `<select>` carry no `type` attribute — so the five of them
+ * in the Text and Watermark inspectors fell through to the user agent and put a
+ * grey Windows text box in the middle of a panel built out of hairline-bordered
+ * translucent chips: `background: #3b3b3b`, `border: 1px solid #858585`, and
+ * `font: 13.3333px` in *Arial* for the two font pickers and in *monospace* for
+ * the two text fields. Every other control on the sheet is Manrope at
+ * `--text-scale`, so the reader's own "Extra large" did not reach these, and the
+ * one control where the typeface is the point — which of the fonts you are
+ * setting the layer in — was set in Arial, which is not one of the choices.
+ *
+ * The inline `borderRadius: 10` / `padding: 8` those five carried happened to
+ * agree with `--radius-sm`, so only the values below are new. The picker keeps
+ * the user agent's own arrow, because `appearance` stays `auto`: it is the one
+ * affordance the platform draws better than a background image, and on a dark
+ * `color-scheme` it draws it in a legible ink. The room on its right is what
+ * keeps the last letter of a font name off that arrow.
+ */
+textarea.grow {
+  min-height: calc(60px * var(--density-factor));
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+select.grow {
+  padding-right: 30px;
+}
+
+.grow[type='text']::placeholder,
+textarea.grow::placeholder {
+  color: var(--ie-ink-soft);
+}
+
+.grow[type='text']:focus-visible,
+textarea.grow:focus-visible,
+select.grow:focus-visible {
+  border-color: var(--ie-accent-bright);
+}
 .readout {
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   color: var(--ie-ink-soft);
   min-height: 20px;
   margin: 6px 0 0;
@@ -66,18 +187,19 @@
 }
 .lookItem {
   border: 1px solid var(--ie-hairline);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 10px 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--ie-fill-quiet);
   color: var(--ie-ink);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--font-2xs);
   cursor: pointer;
-  min-height: 52px;
+  min-height: calc(52px * var(--density-factor));
 }
 .lookItemActive {
   border-color: var(--ie-accent-bright);
   background: rgba(56, 178, 140, 0.16);
+  background: color-mix(in srgb, var(--ie-accent-bright) 16%, transparent);
   color: var(--ie-accent-bright);
 }
 .list {
@@ -91,7 +213,7 @@
   align-items: center;
   gap: 8px;
   border: 1px solid var(--ie-hairline);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 8px;
 }
 .listItemActive {
@@ -100,7 +222,7 @@
 .thumb {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   object-fit: cover;
   background: rgba(255, 255, 255, 0.1);
 }
@@ -108,7 +230,7 @@
   width: 100%;
   height: 80px;
   display: block;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   margin-bottom: 10px;
 }
 .curves {
@@ -118,6 +240,196 @@
   max-height: 300px;
   display: block;
   margin: 10px auto 0;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   touch-action: none;
+}
+.curves:focus-visible {
+  outline: 2px solid var(--ie-accent-bright, #38b28c);
+  outline-offset: 2px;
+}
+.curvePoint:focus-visible {
+  outline: none;
+}
+/**
+ * The only focus indicator a curve point has, because the rule above removes
+ * the native outline. `CurvesEditor` has been rendering `className={styles
+ * .curveFocusRing}` for a point since it gained keyboard support, but this rule
+ * did not exist — so the class resolved to `undefined`, React dropped the
+ * attribute, and the ring was left on its inline attributes alone. It happened
+ * to stay visible, which is why nobody noticed; the next person to give the
+ * ring a fill or a halo would have found the hook was not there.
+ *
+ * `pointer-events: none` is load-bearing: the ring is a sibling drawn over the
+ * point, and without it the larger radius would swallow the point's own
+ * `pointerdown` and the point would stop being draggable.
+ */
+.curveFocusRing {
+  pointer-events: none;
+  fill: var(--ie-accent-bright, #38b28c);
+  fill-opacity: 0.16;
+}
+
+/**
+ * The tool panels had no forced-colors block at all, and the hub's did not
+ * cover them either. Both of the rules below name a *brand* colour, which the
+ * forced palette then replaces with a system one, leaving a pairing that was
+ * never checked: `.textButtonPrimary` is `#fff` on `--ie-accent`, and a scan on
+ * WebKit's light high-contrast theme resolved that to white on `#b3d7fe` —
+ * 1.49:1, against a 4.5:1 requirement. `#fff` is a literal, so no amount of
+ * palette substitution saves it.
+ *
+ * The fix is to stop naming brand colours under forced colors and use only the
+ * system pairs that are defined to contrast with each other: `ButtonFace` on
+ * `ButtonText` for a filled button, `Highlight` on `HighlightText` where the
+ * filled state has to read as selected, and `CanvasText` on `Canvas` for the
+ * accent-coloured *labels*, which are text and must obey the text threshold.
+ */
+@media (forced-colors: active) {
+  .textButton,
+  .textButtonPrimary {
+    background: ButtonFace;
+    color: ButtonText;
+    border-color: ButtonText;
+    forced-color-adjust: none;
+  }
+  .textButtonPrimary[aria-pressed='true'],
+  .textButton[aria-current='true'],
+  .listItem[aria-selected='true'] {
+    background: Highlight;
+    color: HighlightText;
+    border-color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .textButton:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+  .sectionTitle,
+  .hint,
+  .fieldLabel {
+    color: CanvasText;
+  }
+  .listItem {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  .swatch,
+  .card {
+    border: 1px solid CanvasText;
+  }
+  /* A text field has to keep the system pair too, and for the same reason: left
+     to the UA's own forced rendering it is Canvas on CanvasText, which is fine,
+     but `--ie-fill-rest` resolves to a `ButtonFace`-adjacent value that the
+     forced palette then replaces, so the pair has to be stated rather than
+     inherited. */
+  .grow[type='text'],
+  .grow[type='number'],
+  textarea.grow,
+  select.grow {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  .grow[type='text']::placeholder,
+  textarea.grow::placeholder {
+    color: GrayText;
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/* The two translucent things in this file: the selected look's tint and the
+   placeholder behind a layer thumbnail. The `--ie-fill-*` tokens underneath
+   both are already flattened in `tokens.css`; a look at full alpha is the
+   accent fill the editor's own `prefers-contrast` block already uses for a
+   selected `.chip`, so the two modes agree on what "selected" looks like. */
+@media (prefers-reduced-transparency: reduce) {
+  .lookItemActive {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+  .thumb {
+    background: #2a2a2c;
+  }
+}
+
+/* ---------- Increased contrast ---------- */
+
+/* The one rule the panel needed: `--ie-hairline` is a 10%-ish white, which on
+   the editor's near-black chrome is a visible edge in the default palette and
+   all but disappears at "more" contrast for exactly the reader who has asked
+   for the strongest edges the app can offer. `--ie-accent-bright` for the
+   focused field matches what `tokens.css` already does for a focused chip. */
+@media (prefers-contrast: more) {
+  .grow[type='text'],
+  .grow[type='number'],
+  textarea.grow,
+  select.grow {
+    border-color: currentColor;
+  }
+  .grow[type='text']:focus-visible,
+  textarea.grow:focus-visible,
+  select.grow:focus-visible {
+    border-color: var(--ie-accent-bright);
+    outline: 2px solid var(--ie-accent-bright);
+  }
+}
+
+/*
+ * The crop panel's platform catalogue.
+ *
+ * It used to be 600px of twenty-two chips inline in the panel, which pushed the
+ * working Straighten dial 920px down and made the section read as broken: a wall of
+ * buttons whose effect is one line of text 900px away. Folded behind a `<details>`,
+ * so the dial is where a user can reach it and the catalogue is still one tap from
+ * the summary.
+ *
+ * `summary` carries the heading and the count on one line, and the marker is the
+ * browser's own triangle, restyled to the app's radius and ink. A disclosure that
+ * drew its own chevron would have to draw it again for forced colours; this one is
+ * `list-style: none` plus a marker colour, so forced colours gets the system
+ * marker for free.
+ */
+.disclosure {
+  margin-top: 14px;
+}
+.disclosure > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  min-height: var(--ie-tap);
+  color: var(--ie-ink);
+}
+.disclosure > summary::marker {
+  color: var(--ie-ink-soft);
+}
+.disclosure > summary .sectionTitle {
+  margin: 0;
+}
+.disclosureNote {
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  white-space: nowrap;
+}
+.disclosure[open] > summary {
+  margin-bottom: 4px;
+}
+@media (forced-colors: active) {
+  .disclosure > summary {
+    color: CanvasText;
+  }
+  .disclosure > summary::marker,
+  .disclosureNote {
+    color: CanvasText;
+  }
+}
+@media (prefers-contrast: more) {
+  .disclosure > summary {
+    color: var(--ie-ink);
+  }
+  .disclosureNote {
+    color: var(--ie-ink);
+  }
 }

@@ -1,11 +1,11 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import styles from './controls.module.css';
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import styles from './controls.module.css'
 
 export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  label: string;
-  active?: boolean;
-  children: ReactNode;
-};
+  label: string
+  active?: boolean
+  children: ReactNode
+}
 
 export function IconButton({ label, active, className = '', children, ...rest }: IconButtonProps) {
   return (
@@ -18,5 +18,5 @@ export function IconButton({ label, active, className = '', children, ...rest }:
     >
       {children}
     </button>
-  );
+  )
 }

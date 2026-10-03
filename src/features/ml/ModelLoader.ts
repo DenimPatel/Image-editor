@@ -1,193 +1,96 @@
 /**
- * Idempotent ML weight loader.
+ * The catalogue of ML models the UI talks about, and the error type that carries
+ * "this feature cannot run" all the way to a toast.
  *
- * Weights are never committed; `scripts/fetch-models.mjs` downloads them into
- * `public/models/` from the pinned URLs in `models.lock.json`, and this loader
- * caches them in Cache Storage keyed by URL so the second use is instant and
- * offline. Progress is reported before/while bytes move so the UI can disclose
- * the download and offer Cancel.
+ * This file used to be a 193-line weight loader. `ensureModel`,
+ * `isModelCached` and `resetModelCache` had no production callers at all, and
+ * they could not have had any: for the two matting kinds `MODELS[kind].url` is
+ * `''`, so the only thing `ensureModel` could do was `fetch('')` — a request
+ * for the current page. Background removal goes through
+ * `@imgly/background-removal` (src/features/ml/matting.ts), which manages its own
+ * weights and wasm from its CDN, and the passport auto-framer that the
+ * `face-landmarker` entry existed for turned out to need no model at all. With
+ * the passport agent's explicit agreement (board, 2026-09-29) the fetcher and
+ * the `face-landmarker` entry are gone rather than left as 130 lines that look
+ * load-bearing and are not.
+ *
+ * What remains is honest about where the bytes come from, which is the part the
+ * user is actually shown: `BackgroundPanel` renders `label` and `bytes`.
  */
 
-export type ModelKind = 'matting-quint8' | 'matting-fp16' | 'face-landmarker';
+export type ModelKind = 'matting-quint8' | 'matting-fp16'
+
+/** Where the weights are actually served from. */
+export type ModelHost = 'cdn' | 'self-hosted'
 
 export type ModelInfo = {
-  kind: ModelKind;
-  label: string;
-  // Empty for the matting kinds: @imgly/background-removal fetches its own
-  // weights from its CDN (see src/features/ml/matting.ts), not from
-  // public/models/, so ensureModel() is never called for these kinds.
-  url: string;
-  bytes: number;
-};
+  kind: ModelKind
+  label: string
+  host: ModelHost
+  /**
+   * Measured from the real manifest download of the imgly CDN chunks (encoder
+   * and decoder stages, not just the single isnet_*.onnx file). It is an
+   * estimate of a third-party CDN, which is why the panel must say so.
+   */
+  bytes: number
+}
 
-// The imgly CDN serves each model as several chunks (encoder/decoder stages,
-// not just the single isnet_*.onnx file), so these totals are measured from
-// the actual manifest download, not the raw .onnx file size.
+// The imgly CDN serves each model as several chunks, so these totals are measured
+// from the actual manifest download, not the raw .onnx file size. Neither entry
+// can be served from public/models/: @imgly/background-removal resolves its own
+// asset base and its own cache, and offers no hook to inject local weights.
 export const MODELS: Record<ModelKind, ModelInfo> = {
   'matting-quint8': {
     kind: 'matting-quint8',
-    label: 'Background removal (fast, ~42 MB)',
-    url: '',
+    label: 'Background removal (fast)',
+    host: 'cdn',
     bytes: 42 * 1024 * 1024,
   },
   'matting-fp16': {
     kind: 'matting-fp16',
-    label: 'Background removal (best quality, ~84 MB)',
-    url: '',
+    label: 'Background removal (best quality)',
+    host: 'cdn',
     bytes: 84 * 1024 * 1024,
   },
-  'face-landmarker': {
-    kind: 'face-landmarker',
-    label: 'Face landmarks (~3.7 MB)',
-    url: `${import.meta.env.BASE_URL}models/face_landmarker.task`,
-    bytes: Math.round(3.7 * 1024 * 1024),
-  },
-};
+}
+
+export function modelKindFor(quality: 'fast' | 'best'): ModelKind {
+  return quality === 'best' ? 'matting-fp16' : 'matting-quint8'
+}
 
 export class ModelUnavailableError extends Error {
-  readonly reason: unknown;
+  readonly kind: ModelKind
+  readonly reason: unknown
+
   constructor(kind: ModelKind, cause?: unknown) {
-    super(`Model “${MODELS[kind].label}” is not available.`);
-    this.name = 'ModelUnavailableError';
-    this.reason = cause;
+    super(`Model “${MODELS[kind].label}” is not available.`)
+    this.name = 'ModelUnavailableError'
+    this.kind = kind
+    this.reason = cause
   }
 }
 
-export type LoaderDeps = {
-  cacheStorage: CacheStorage | undefined;
-  fetchFn: typeof fetch;
-  cacheName: string;
-};
-
-const CACHE_NAME = 'ie-models-v1';
-
-function defaultDeps(): LoaderDeps {
-  return {
-    cacheStorage: typeof caches !== 'undefined' ? caches : undefined,
-    fetchFn: typeof fetch !== 'undefined' ? fetch : (undefined as unknown as typeof fetch),
-    cacheName: CACHE_NAME,
-  };
-}
-
-export type EnsureModelOptions = {
-  onProgress?: (received: number, total: number) => void;
-  signal?: AbortSignal;
-  deps?: Partial<LoaderDeps>;
-  force?: boolean;
-};
-
-const inFlight = new Map<ModelKind, Promise<ArrayBuffer>>();
-const ready = new Map<ModelKind, ArrayBuffer>();
-
-export function isModelCached(kind: ModelKind): boolean {
-  return ready.has(kind);
-}
-
-export function resetModelCache(): void {
-  ready.clear();
-  inFlight.clear();
-}
+const CACHE_NAME = 'ie-models-v1'
 
 /**
- * Resolve a model's bytes, from Cache Storage when possible, otherwise from
- * the network (streamed with progress) and then cached. Concurrent calls for
- * the same kind share one request.
+ * Clear stale caches from previous schema versions when the browser is idle.
+ * Called from `src/pages/Editor.tsx`. It is currently a no-op — nothing writes
+ * `ie-models-*` caches since the fetcher went away — and is kept only because
+ * removing it means editing a file this district does not own. The exact
+ * deletion is in the D7-F06 report.
  */
-export async function ensureModel(kind: ModelKind, options: EnsureModelOptions = {}): Promise<ArrayBuffer> {
-  const cached = ready.get(kind);
-  if (cached && !options.force) return cached;
-  const existing = inFlight.get(kind);
-  if (existing && !options.force) return existing;
-
-  const deps: LoaderDeps = { ...defaultDeps(), ...options.deps };
-  const info = MODELS[kind];
-
-  const promise = (async () => {
-    const cache = deps.cacheStorage ? await deps.cacheStorage.open(deps.cacheName).catch(() => undefined) : undefined;
-
-    if (cache && !options.force) {
-      const hit = await cache.match(info.url);
-      if (hit) {
-        const buffer = await hit.arrayBuffer();
-        ready.set(kind, buffer);
-        return buffer;
-      }
-    }
-
-    let response: Response;
-    try {
-      response = await deps.fetchFn(info.url, { signal: options.signal });
-    } catch (error) {
-      throw new ModelUnavailableError(kind, error);
-    }
-    if (!response.ok) throw new ModelUnavailableError(kind, new Error(`HTTP ${response.status}`));
-
-    const total = Number(response.headers.get('content-length')) || info.bytes;
-    const buffer = await readWithProgress(response, total, options.onProgress, options.signal);
-    if (cache) {
-      await cache
-        .put(info.url, new Response(buffer.slice(0), { headers: { 'content-type': 'application/octet-stream' } }))
-        .catch(() => undefined);
-    }
-    ready.set(kind, buffer);
-    return buffer;
-  })();
-
-  inFlight.set(kind, promise);
-  try {
-    return await promise;
-  } finally {
-    inFlight.delete(kind);
-  }
-}
-
-async function readWithProgress(
-  response: Response,
-  total: number,
-  onProgress: ((received: number, total: number) => void) | undefined,
-  signal: AbortSignal | undefined,
-): Promise<ArrayBuffer> {
-  const body = response.body;
-  if (!body || typeof body.getReader !== 'function') {
-    const buffer = await response.arrayBuffer();
-    onProgress?.(buffer.byteLength, total);
-    return buffer;
-  }
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-  for (;;) {
-    if (signal?.aborted) {
-      await reader.cancel();
-      throw new DOMException('Aborted', 'AbortError');
-    }
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      chunks.push(value);
-      received += value.byteLength;
-      onProgress?.(received, total);
-    }
-  }
-  const merged = new Uint8Array(received);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return merged.buffer;
-}
-
-/** Clear stale caches from previous schema versions when the browser is idle. */
 export function scheduleOldCacheCleanup(): void {
-  if (typeof window === 'undefined' || typeof caches === 'undefined') return;
+  if (typeof window === 'undefined' || typeof caches === 'undefined') return
   const run = async () => {
-    const names = await caches.keys();
+    const names = await caches.keys()
     await Promise.all(
-      names.filter((name) => name.startsWith('ie-models-') && name !== CACHE_NAME).map((name) => caches.delete(name)),
-    );
-  };
-  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-  if (idle) idle(() => void run());
-  else window.setTimeout(() => void run(), 3000);
+      names
+        .filter((name) => name.startsWith('ie-models-') && name !== CACHE_NAME)
+        .map((name) => caches.delete(name)),
+    )
+  }
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number })
+    .requestIdleCallback
+  if (idle) idle(() => void run())
+  else window.setTimeout(() => void run(), 3000)
 }

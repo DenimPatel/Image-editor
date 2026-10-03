@@ -1,0 +1,161 @@
+/*
+ * The Adjust panel's own presentation layer: the curves channel chips and the
+ * colour-band grid.
+ *
+ * Both are here rather than in `controls.module.css` for the same reason they
+ * are here rather than in `tools.module.css`: they are the only two controls in
+ * the app whose *colour carries meaning*. A chip is a label plus a dot in the
+ * colour of the thing it selects, and a segmented control cannot draw that.
+ *
+ * Every length is expressed against a multiplier so the three accessibility
+ * settings still apply: `--text-scale` for type, `--density-factor` for the
+ * touch target, `--icon-scale` for the swatch.
+ */
+
+/* ---------- Curves: channel chips ---------- */
+
+.channelChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.channelChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ie-hairline);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink-soft);
+  border-radius: var(--radius-xs);
+  padding: 6px 10px;
+  min-height: calc(36px * var(--density-factor));
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.channelChip:hover {
+  background: var(--ie-fill-hover);
+}
+.channelChipActive {
+  background: var(--ie-fill-selected);
+  border-color: var(--ie-accent);
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+
+/**
+ * The dot that makes the chip the legend.
+ *
+ * Its size follows `--icon-scale` like every other mark in the app, and it is
+ * inset by a hairline so a swatch in a colour close to the chip's own fill — a
+ * white dot on a white chip, in high contrast — still has an edge. The chip
+ * text never carries the colour as its only signal: weight, fill and
+ * `aria-pressed` all move with the selection, so the row is readable in
+ * greyscale and under `forced-colors`.
+ */
+.channelDot {
+  width: calc(10px * var(--icon-scale));
+  height: calc(10px * var(--icon-scale));
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ie-chrome-solid);
+  flex: none;
+}
+
+/* ---------- Colour Mix: band grid ---------- */
+
+/*
+ * A grid rather than a row, because eight band names do not fit in 390px and a
+ * control that has to be scrolled horizontally to see half its options is not
+ * telling the user what their photo contains. `repeat(auto-fit, minmax(...))`
+ * reflows on its own, so there is no breakpoint to keep in step.
+ */
+.bandGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(96px * var(--density-factor)), 1fr));
+  gap: 6px;
+}
+.bandChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ie-hairline);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink-soft);
+  border-radius: var(--radius-xs);
+  padding: 6px 8px;
+  min-height: calc(40px * var(--density-factor));
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bandChip:hover {
+  background: var(--ie-fill-hover);
+}
+.bandChipActive {
+  background: var(--ie-fill-selected);
+  border-color: var(--ie-accent);
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+
+/**
+ * The swatch is the mapping between the word and the pixels, so it is drawn at
+ * the size of a colour target rather than as a 6px bullet: at 10px a swatch has
+ * no area to judge, and "Yellow" against "Orange" is a five-unit hue difference
+ * that only separates once there is enough of it to look at. The inset ring does
+ * the same job as the dot's: it keeps the edge visible where the swatch colour
+ * and the chip fill are close.
+ */
+.bandSwatch {
+  width: calc(16px * var(--icon-scale));
+  height: calc(16px * var(--icon-scale));
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--ie-chrome-solid);
+  flex: none;
+}
+
+/*
+ * A band the user has touched, marked without saying so in the accessible name.
+ *
+ * The band's three numbers are one screen below, so this is reinforcement and
+ * not the only route to the fact — which is what lets the chip's accessible
+ * name stay exactly the band name. `aria-pressed` still carries selection; this
+ * carries "not at zero", which is a different question.
+ */
+.bandChip[data-edited='true']::after {
+  content: '';
+  width: calc(5px * var(--icon-scale));
+  height: calc(5px * var(--icon-scale));
+  border-radius: 50%;
+  background: var(--ie-accent-bright);
+  margin-left: auto;
+  flex: none;
+}
+
+.bandSliders {
+  margin-top: 10px;
+}
+
+/* ---------- Forced colours ---------- */
+
+/*
+ * The two dots are the only brand-coloured marks this file owns, and forced
+ * colours replaces them with `Canvas` — which is why `box-shadow` is set to
+ * `none` and an explicit `CanvasText` border is drawn instead. Without the
+ * border a swatch is an invisible disc sitting on the same background as the
+ * chip, so the one thing the band chip is for disappears in exactly the mode
+ * where somebody most needs it.
+ */
+@media (forced-colors: active) {
+  .channelDot,
+  .bandSwatch {
+    box-shadow: none;
+    border: 1px solid CanvasText;
+    forced-color-adjust: none;
+  }
+  .bandChip[data-edited='true']::after {
+    background: CanvasText;
+  }
+}

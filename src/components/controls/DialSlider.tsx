@@ -1,26 +1,26 @@
-import { useCallback, useRef } from 'react';
-import { useHaptics } from '../../hooks/useHaptics';
-import { usePointerDrag } from '../../hooks/usePointerDrag';
-import styles from './controls.module.css';
+import { useCallback, useRef } from 'react'
+import { useHaptics } from '../../hooks/useHaptics'
+import { usePointerDrag } from '../../hooks/usePointerDrag'
+import styles from './controls.module.css'
 
 export type DialSliderProps = {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  neutral?: number;
-  unit?: string;
-  pxPerUnit?: number;
-  disabled?: boolean;
-  format?: (value: number) => string;
-  onChange: (value: number) => void;
-  onInteractionStart?: () => void;
-  onInteractionEnd?: () => void;
-};
+  label: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  neutral?: number
+  unit?: string
+  pxPerUnit?: number
+  disabled?: boolean
+  format?: (value: number) => string
+  onChange: (value: number) => void
+  onInteractionStart?: () => void
+  onInteractionEnd?: () => void
+}
 
 function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+  return Math.min(max, Math.max(min, value))
 }
 
 /**
@@ -43,100 +43,109 @@ export function DialSlider({
   onInteractionStart,
   onInteractionEnd,
 }: DialSliderProps) {
-  const haptics = useHaptics();
-  const startValue = useRef(value);
-  const totalDx = useRef(0);
-  const detentActive = useRef(value === neutral);
-  const lastTap = useRef(0);
+  const haptics = useHaptics()
+  const startValue = useRef(value)
+  const totalDx = useRef(0)
+  const detentActive = useRef(value === neutral)
+  const lastTap = useRef(0)
 
   const emit = useCallback(
     (next: number) => {
-      const clamped = clamp(next, min, max);
-      const atDetent = Math.abs(clamped - neutral) < step / 2 + 1e-9;
-      const snapped = atDetent ? neutral : clamped;
+      const clamped = clamp(next, min, max)
+      const atDetent = Math.abs(clamped - neutral) < step / 2 + 1e-9
+      const snapped = atDetent ? neutral : clamped
       if (atDetent && !detentActive.current) {
-        detentActive.current = true;
-        haptics(8);
+        detentActive.current = true
+        haptics(8)
       } else if (!atDetent) {
-        detentActive.current = false;
+        detentActive.current = false
       }
-      onChange(snapped);
+      onChange(snapped)
     },
     [haptics, max, min, neutral, onChange, step],
-  );
+  )
 
   const { onPointerDown } = usePointerDrag({
     onStart: () => {
-      startValue.current = value;
-      totalDx.current = 0;
-      onInteractionStart?.();
+      startValue.current = value
+      totalDx.current = 0
+      onInteractionStart?.()
     },
     onMove: (dx) => {
-      totalDx.current += dx;
-      const raw = startValue.current + totalDx.current / pxPerUnit;
-      const snapped = Math.round(raw / step) * step;
-      emit(snapped);
+      totalDx.current += dx
+      const raw = startValue.current + totalDx.current / pxPerUnit
+      const snapped = Math.round(raw / step) * step
+      emit(snapped)
     },
     onEnd: () => {
-      onInteractionEnd?.();
+      onInteractionEnd?.()
     },
-  });
+  })
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      const now = Date.now();
+      const now = Date.now()
       if (now - lastTap.current < 300) {
-        lastTap.current = 0;
-        onInteractionStart?.();
-        emit(neutral);
-        onInteractionEnd?.();
-        haptics(12);
-        return;
+        lastTap.current = 0
+        onInteractionStart?.()
+        emit(neutral)
+        onInteractionEnd?.()
+        haptics(12)
+        return
       }
-      lastTap.current = now;
-      onPointerDown(event);
+      lastTap.current = now
+      onPointerDown(event)
     },
     [emit, haptics, neutral, onInteractionEnd, onInteractionStart, onPointerDown],
-  );
+  )
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
-      let next: number;
-      const big = step * 10;
+      let next: number
+      const big = step * 10
       switch (event.key) {
         case 'ArrowRight':
         case 'ArrowUp':
-          next = value + step;
-          break;
+          next = value + step
+          break
         case 'ArrowLeft':
         case 'ArrowDown':
-          next = value - step;
-          break;
+          next = value - step
+          break
         case 'PageUp':
-          next = value + big;
-          break;
+          next = value + big
+          break
         case 'PageDown':
-          next = value - big;
-          break;
+          next = value - big
+          break
         case 'Home':
-          next = neutral;
-          break;
+          next = neutral
+          break
         case 'End':
-          next = max;
-          break;
+          next = max
+          break
         default:
-          return;
+          return
       }
-      event.preventDefault();
-      emit(next);
+      event.preventDefault()
+      // The keyboard path brackets itself in an interaction, exactly like the
+      // pointer path. Without it a held arrow key pushes one undo step per
+      // repeat and spends the whole 50-slot history (D2-F04). The span is
+      // closed on keyup or blur, whichever comes first.
+      onInteractionStart?.()
+      emit(next)
     },
-    [emit, max, neutral, step, value],
-  );
+    [emit, max, neutral, onInteractionStart, step, value],
+  )
+
+  const handleInteractionEnd = useCallback(() => {
+    onInteractionEnd?.()
+  }, [onInteractionEnd])
 
   const display = format
     ? format(value)
-    : `${value > 0 ? '+' : ''}${Number.isInteger(value) ? value : value.toFixed(1)}${unit}`;
-  const offset = (value - neutral) * pxPerUnit;
+    : `${value > 0 ? '+' : ''}${Number.isInteger(value) ? value : value.toFixed(1)}${unit}`
+  const offset = (value - neutral) * pxPerUnit
 
   return (
     <div className={styles.dial}>
@@ -156,12 +165,22 @@ export function DialSlider({
         aria-disabled={disabled}
         onPointerDown={disabled ? undefined : handlePointerDown}
         onKeyDown={disabled ? undefined : handleKeyDown}
+        onKeyUp={disabled ? undefined : handleInteractionEnd}
+        onBlur={disabled ? undefined : handleInteractionEnd}
       >
-        <div className={styles.dialRulerMajor} style={{ backgroundPositionX: `calc(50% - ${offset}px)` }} />
-        <div className={styles.dialRuler} style={{ backgroundPositionX: `calc(50% - ${offset}px)` }} />
+        <div
+          className={styles.dialRulerMajor}
+          style={{ backgroundPositionX: `calc(50% - ${offset}px)` }}
+        />
+        <div
+          className={styles.dialRuler}
+          style={{ backgroundPositionX: `calc(50% - ${offset}px)` }}
+        />
         <div className={styles.dialNeedle} />
-        <div className={`${styles.dialDetent}${value === neutral ? ` ${styles.dialDetentActive}` : ''}`} />
+        <div
+          className={`${styles.dialDetent}${value === neutral ? ` ${styles.dialDetentActive}` : ''}`}
+        />
       </div>
     </div>
-  );
+  )
 }

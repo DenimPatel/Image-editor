@@ -1,4 +1,4 @@
-import styles from './controls.module.css';
+import styles from './controls.module.css'
 
 export function Stepper({
   label,
@@ -8,14 +8,14 @@ export function Stepper({
   step = 1,
   onChange,
 }: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  onChange: (value: number) => void;
+  label: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (value: number) => void
 }) {
-  const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next))));
+  const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next))))
   return (
     <div className={styles.field}>
       <span className={styles.fieldLabel}>{label}</span>
@@ -29,5 +29,5 @@ export function Stepper({
         </button>
       </div>
     </div>
-  );
+  )
 }

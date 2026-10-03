@@ -1,0 +1,16 @@
+# Generated and vendored output. Prettier must never be asked to format these:
+# the first two are build products, and `.kilo/` is an Agent Manager worktree
+# that carries a whole second copy of the project. Before this file existed,
+# `prettier --check .` reported 95 findings inside `.kilo/` alone — more than
+# every real finding in `src/` combined — and a 95-file diff in someone else's
+# checkout is not a format gate, it is sabotage.
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright-mcp/
+public/models/
+
+.kilo/

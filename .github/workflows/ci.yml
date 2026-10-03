@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   build:
@@ -10,11 +12,165 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
+        # .nvmrc and package.json "engines" say 24; pinning 20 here is how the
+        # tree ended up with two different "the node version".
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Formatting
+        # Repo-wide, deliberately. This used to be scoped to the toolchain, the
+        # scripts and the files this district owns, on the grounds that 48
+        # in-repo files still carried semicolons. That is no longer true —
+        # `npx prettier --check .` is green — and a scoped gate has a failure
+        # mode that reads as a pass: a file added anywhere outside the list is
+        # never checked, so nothing fails and the CI badge stays green. The
+        # list is gone for the same reason it should not come back.
+        #
+        # `.prettierignore` keeps `.kilo/` out: an Agent Manager worktree carries
+        # its own copy of `src/`, and before that file existed 95 of the 143
+        # reported findings were inside someone else's checkout.
+        run: npx prettier --check .
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      - name: Coverage thresholds
+        # D9-F02. Per-area thresholds live in `vite.config.ts` and are set at
+        # the measured figure minus two or three points, so this gate is green
+        # on arrival and still catches an area going backwards.
+        run: npm run test:coverage
+      - name: Committed assets match their generators
+        # public/luts/*.png, public/look-thumbs/*.png and public/fonts/*.woff2
+        # are committed, so a recipe edit that was not regenerated would ship a
+        # Look chip that renders the image unchanged, a thumbnail that shows the
+        # wrong grade, or a text layer in the browser's fallback face. All three
+        # generators are named rather than left to the `assets:check` inside
+        # `npm run build`, because a step that says what it checks is a step
+        # somebody can notice going missing.
+        run: npm run luts:gen -- --check && npm run icons:gen -- --check && npm run thumbs:gen -- --check
+      - name: Declared assets resolve to real files
+        # Also the `public/` byte budget: `verify-assets.mjs` runs
+        # `check-public-budget.mjs` over the real tree, so a runaway committed
+        # asset fails here rather than in a 30 MB deploy nobody noticed.
+        run: npm run assets:verify
+      - name: Build
+        # prebuild runs scripts/fetch-models.mjs, and build runs assets:check,
+        # so a bundle that ships a 404 look or font cannot be produced here.
+        run: npm run build
+      - name: The asset guard is real
+        # D7-F08: REQUIRE_ASSETS used to name a guard that no script read and no
+        # workflow set. This asserts the negation — delete one shipped asset and
+        # the build must fail — so the guard cannot rot back into a no-op.
+        run: |
+          mv public/luts/kodak-portra.png /tmp/kodak-portra.png
+          if REQUIRE_ASSETS=1 npm run build; then
+            echo "::error::build succeeded with a declared look missing — the asset guard is a no-op"
+            mv /tmp/kodak-portra.png public/luts/kodak-portra.png
+            exit 1
+          fi
+          mv /tmp/kodak-portra.png public/luts/kodak-portra.png
+      - name: The public budget is real
+        # A gate nobody has watched fail is decoration. One 4 MB file is the
+        # smallest thing that trips the per-file cap, and the smallest thing
+        # that proves the cap is doing something.
+        run: |
+          head -c 4194304 /dev/zero > public/runaway.bin
+          if npm run public:budget; then
+            echo "::error::public budget passed with a 4 MB committed file — the cap is a no-op"
+            rm -f public/runaway.bin
+            exit 1
+          fi
+          rm -f public/runaway.bin
+          npm run public:budget
+
+  # D9-F01 / D9-F06 / D9-F07. Kept out of `build` on purpose: a browser download
+  # is the single slowest thing in this workflow and the slowest thing to fail
+  # for reasons that have nothing to do with the change under review. A separate
+  # job means a red e2e run cannot block the unit/lint/build signal, and it can
+  # be required as its own check later.
+  #
+  # All three playwright projects are legs. `npx playwright test` with no
+  # `--project` runs all of them locally; this matrix runs them here.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # WebKit is the project that catches the Safari-only
+        # ImageBitmap/OffscreenCanvas/clipboard behaviour the README promises,
+        # so it is a matrix leg rather than an afterthought. It runs on a
+        # second job so a WebKit-only failure is unambiguous in the checks list.
+        #
+        # `mobile` is a leg too, and it used not to be: `chromium` and `webkit`
+        # both `testIgnore` `/journey\.mobile/`, and nothing in this file ran
+        # the third project, so `journey.mobile.spec.ts` and
+        # `journey.mobile-touch.spec.ts` — 19 cases, and the only coverage of
+        # one-finger drags, the sheet detents and the touchable-canvas rule —
+        # were dark on every PR. That is the "a gate that does not run is worse
+        # than no gate" case: the docs, the config and the badge all said the
+        # suite ran on three projects and CI ran two.
+        #
+        # `browser` is separate from `project` because the Pixel 7 descriptor is
+        # Chromium-based, so the install step must ask for chromium while the
+        # run must select the `mobile` project.
+        project: [chromium, webkit, mobile]
+        browser: [chromium, webkit, chromium]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install ${{ matrix.browser }}
+        # `--with-deps` is the part that matters: without it the browser
+        # launches and then dies on a missing system library, which reads as a
+        # test failure and is not one. Pinning the browser build to the one
+        # `@playwright/test` in package.json avoids "works locally, red in CI"
+        # from a version drift.
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: End-to-end
+        env:
+          # The GPU-parity test refuses to trust a software rasteriser, so on a
+          # runner with no GPU it *skips* with the renderer string in the log.
+          # It never silently passes. The matting run is off because it fetches
+          # ~42 MB from the imgly CDN; opt in with E2E_MATTING=1 by hand.
+          E2E_MATTING: '0'
+        run: npx playwright test --project=${{ matrix.project }}
+      - name: Runtime performance budget
+        # The e2e gate has already asserted `evaluateBudget` in the browser; this
+        # applies the same table to the JSON that run wrote, which is the path a
+        # report taken on a real device takes. It is a separate step so a failure
+        # says "the frame budget broke" rather than "some journey failed", and
+        # because a report that no check reads is a report nobody reads.
+        #
+        # Chromium projects only. The WebKit leg runs the same spec against the
+        # same budget, so checking its report as well would be a second run of
+        # an assertion that already ran.
+        if: matrix.browser == 'chromium' && matrix.project == 'chromium'
+        run: npm run perf:check
+      - name: Performance reports
+        # Uploads whatever the run measured, pass or fail. A budget nobody can
+        # read the numbers behind is a budget nobody can argue with — or lower,
+        # when the honest move is to lower it.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-reports-${{ matrix.project }}
+          path: test-results/perf/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Accessibility findings
+        # The allowlist lives in e2e/a11y.spec.ts; this uploads the report so a
+        # tolerated violation is still visible instead of being a line in a
+        # comment nobody reads.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore

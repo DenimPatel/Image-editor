@@ -6,16 +6,21 @@
   --line: #e6e4dc;
   --ink: #1c1c1a;
   --ink-soft: #4a4a46;
-  --muted: #7a7a73;
+  /* 4.5:1 on `--bg`, not 4.13:1. `--muted` is only used for the footer credit
+     line, which is real content a screen-reader user still reads, so it is
+     held to the same bar as body copy rather than tolerated in an allowlist. */
+  --muted: #63635c;
   --accent: #1f6f5c;
   --accent-ink: #143f35;
   --accent-tint: #e7f1ee;
-  --radius: 14px;
+  --radius: var(--radius-lg);
   --maxw: 1080px;
-  --shadow:
-    0 1px 2px rgba(28, 28, 26, 0.04),
-    0 8px 24px rgba(28, 28, 26, 0.05);
+  --shadow: var(--shadow-1);
   --nav-bg-rgb: 250, 250, 248;
+  /* Focus rings are drawn from this one token, so the global :focus-visible
+     rule in base.css works on the light Hub without a second rule. The editor
+     redeclares it inside .editor for its hardcoded-dark surface. */
+  --focus-ring: #0b5c48;
 }
 
 /* OS-preference dark palette, applied only until the user makes an explicit
@@ -32,15 +37,25 @@
     --accent: #4fa98c;
     --accent-ink: #a9e0cc;
     --accent-tint: #1b342c;
-    --shadow:
-      0 1px 2px rgba(0, 0, 0, 0.3),
-      0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
     --nav-bg-rgb: 23, 24, 26;
+    --focus-ring: #7fe0bd;
   }
 }
 
 /* Explicit user override, wins regardless of OS preference. */
 :root[data-theme='dark'] {
+  /* The UA's own widgets — scrollbars, `<select>` popups, the `input[type=color]`
+     swatch, the focus ring of anything the app does not style — are painted
+     from `color-scheme`, not from `--bg`/`--ink`. `color-scheme: light dark` on
+     the bare `:root` therefore hands them the *OS* scheme, so a reader who
+     chose light on a dark machine got a light page with dark scrollbars, and
+     a reader who chose dark on a light machine got the reverse, until the
+     attribute landed and nothing corrected it. Pinning the scheme to the
+     chosen theme is the one flash `data-theme` can cause and CSS is the only
+     place it can be answered. With no attribute there is nothing to pin to and
+     the bare `:root` value is right, because then the OS is the decision. */
+  color-scheme: dark;
   --bg: #17181a;
   --bg-alt: #1e2020;
   --surface: #1f2222;
@@ -51,10 +66,16 @@
   --accent: #4fa98c;
   --accent-ink: #a9e0cc;
   --accent-tint: #1b342c;
-  --shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
   --nav-bg-rgb: 23, 24, 26;
+  --focus-ring: #7fe0bd;
+}
+
+/* The other half of the `color-scheme` pair above. It needs its own block
+   because `light` is the `:root` value already in force; only an explicit
+   choice has to say so out loud. */
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* Editor chrome tokens. The site (hub) stays themeable, but the editor is
@@ -69,10 +90,688 @@
   --ie-ink-soft: rgba(235, 235, 245, 0.6);
   --ie-accent: #1f6f5c;
   --ie-accent-bright: #38b28c;
-  --ie-tap: 44px;
-  --ie-sheet-radius: 20px;
+  /* The four multipliers below are the entire CSS half of the appearance
+     model. `useAppearance` writes one attribute per setting and this file
+     turns each into a number; every consumer in every other stylesheet
+     multiplies by one of these four rather than restating a value, which is
+     what makes a setting a *scale* instead of a lookup table of twenty
+     hand-picked sizes. All four default to the identity, because
+     `appearanceAttributes` omits an attribute whose setting is the default —
+     so the absence of `data-text` has to mean exactly what `data-text` with
+     no value would have meant. */
+  --text-scale: 1;
+  --density-factor: 1;
+  --motion-factor: 1;
+  --icon-scale: 1;
+  /* The tap target is a control, so it is the one place density has to land
+     for a whole family of controls to move at once: four declarations read it
+     directly (`.iconButton`, `.doneButton`, `.primaryButton`, the crash
+     boundary's buttons) and `Editor.tsx:461` sizes a hit area from it inline.
+     Everything else that scales with density says so where it is used. */
+  --ie-tap: calc(44px * var(--density-factor));
   --ie-safe-top: env(safe-area-inset-top, 0px);
   --ie-safe-right: env(safe-area-inset-right, 0px);
   --ie-safe-bottom: env(safe-area-inset-bottom, 0px);
   --ie-safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* ==========================================================================
+   The appearance settings.
+
+   Five attributes, five numbers, declared once. The values are the ones
+   `DENSITIES` / `TEXT_SCALES` / `MOTION_PREFERENCES` / `ICON_SCALES` in
+   `src/lib/appearance.ts` allow-list, and `scales.test.ts` asserts the two
+   lists are the same list, so a value added on the CSS side without the model
+   knowing about it is a setting no UI can ever write.
+
+   Nothing below restates a size. Each is a multiplier, and every consumer
+   multiplies its own authored value by it, which is the whole difference
+   between a preference and a theme: adding a fifth text size here changes
+   every one of the thirty-odd type declarations in the app at once, with no
+   second table of hand-picked numbers to keep in step.
+
+   The ladder is deliberately not the same on all four axes. Type and density
+   are about how much room something needs, so they step by a quarter and an
+   eighth around the identity and land on 12px and 44px — the two numbers the
+   legibility floor and the tap target already fix. Motion has two states and
+   no in-between, because a duration is not something a reader wants a third
+   opinion about: `0` is not "faster", it is "not moving". Icon scale steps
+   wider, because an 18px glyph at 20% larger is imperceptible and at 25%
+   smaller it is gone.
+   ========================================================================== */
+:root[data-text='small'] {
+  --text-scale: 0.875;
+}
+:root[data-text='large'] {
+  --text-scale: 1.125;
+}
+:root[data-text='xlarge'] {
+  --text-scale: 1.25;
+}
+
+:root[data-density='compact'] {
+  --density-factor: 0.875;
+}
+:root[data-density='roomy'] {
+  --density-factor: 1.125;
+}
+
+:root[data-motion='reduced'] {
+  --motion-factor: 0;
+}
+
+:root[data-icons='small'] {
+  --icon-scale: 0.875;
+}
+:root[data-icons='large'] {
+  --icon-scale: 1.25;
+}
+
+/* `prefers-contrast: more`: the default hairline is 12% white on near-black,
+   which is roughly 1.4:1 — invisible to anyone asking for more contrast. Swap
+   the translucent tokens for solid ones rather than restating every rule. */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme],
+  :root:not([data-theme]) {
+    /* `--ink` is already a solid, maximally contrasting colour in whichever
+       palette is active, so it works for both without branching. */
+    --line: var(--ink);
+    --ink-soft: var(--ink);
+    --muted: var(--ink);
+    /* `!important` because the per-accent blocks at the bottom of this file
+       sit *after* this one and would otherwise win: `:root:not([data-theme])`
+       and `:root[data-accent='…']` are the same specificity, and a curated
+       ring is a brand colour surviving into a mode whose entire purpose is
+       that no brand colour survives. The accent's own measured ring clears
+       3:1 on both grounds, so this is not a fix for a bad number — it is the
+       assertion that a *user-chosen system palette* outranks a *user-chosen
+       brand colour*, which is the only reason forced colors exists. */
+    --focus-ring: var(--accent) !important;
+  }
+  :root {
+    --ie-hairline: var(--ie-ink);
+    --ie-ink-soft: var(--ie-ink);
+    /* This is the *default* accent's lift, not the only one. The editor is
+       hardcoded dark whatever the theme is, so a light-on-dark text accent is
+       exactly what "more contrast" is asking to be more of, and a second
+       brighter green was the right answer to that — for the green. The
+       per-accent blocks below sit after this rule and out-specify `:root`, so
+       a chosen accent now brings its own measured value (5.3:1 to 7.3:1 on
+       the editor grounds, all well over the 4.5:1 text bar) and only a
+       reader who never picked an accent gets the 10.8:1 lift. Which is also
+       why the line reads as a default and not as a limit. */
+    --ie-accent-bright: #6fe3b8;
+  }
+}
+
+/* Windows High Contrast / `forced-colors`: every translucent surface and
+   12%-white hairline is either dropped or flattened, so remap the tokens onto
+   the system palette. `Canvas`/`CanvasText`/`Highlight` are the four colours
+   the OS guarantees to be mutually distinguishable and user-chosen.
+
+   The six accent tokens carry `!important` here, and this is the one place in
+   the stylesheet where that is not a smell. The per-accent blocks at the
+   bottom of this file are *later* in source order and, for the dark scope,
+   *more* specific — so without it a reader who chose Cobalt and also has High
+   Contrast on gets `#1b5e9c` on whatever `Canvas` the OS picked, which is the
+   1.49:1 class of failure this codebase has already shipped once. A system
+   palette the user chose in the OS is not something an in-app preference is
+   entitled to override, and saying so in the cascade is cheaper than
+   discovering it in an audit. */
+@media (forced-colors: active) {
+  :root,
+  :root[data-theme],
+  :root:not([data-theme]) {
+    --bg: Canvas;
+    --bg-alt: Canvas;
+    --surface: Canvas;
+    --line: CanvasText;
+    --ink: CanvasText;
+    --ink-soft: CanvasText;
+    --muted: CanvasText;
+    --accent: Highlight !important;
+    --accent-ink: HighlightText !important;
+    --accent-tint: Canvas !important;
+    --focus-ring: Highlight !important;
+    --nav-bg-rgb: 0, 0, 0;
+  }
+  :root {
+    --ie-canvas-bg: Canvas;
+    --ie-chrome: Canvas;
+    --ie-chrome-solid: Canvas;
+    --ie-hairline: CanvasText;
+    --ie-ink: CanvasText;
+    --ie-ink-soft: CanvasText;
+    --ie-accent: Highlight !important;
+    /* `HighlightText`, not `Highlight`. This token is a *text* colour — it
+       paints shortcut keys in the help overlay, the selected tab's icon, link
+       copy in the editor sheets — and `Highlight` is the system colour for a
+       selected *surface*, whose guaranteed partner is `HighlightText` and whose
+       pairing with `Canvas` no OS promises. WebKit's palette is the proof:
+       `Highlight` is `rgba(128, 188, 254, 0.6)`, which composites to `#b3d7fe`
+       on its own `Canvas`, and 1.49:1 against text. A selection surface still
+       gets `Highlight`, from the rules that paint surfaces
+       (`editor.module.css`'s forced-colors block). */
+    --ie-accent-bright: HighlightText !important;
+  }
+}
+
+/* ==========================================================================
+   Scales.
+
+   Everything above this line is a colour and had to be authored first. What
+   follows is the other three axes — type, space, radius — plus elevation,
+   stacking and motion, none of which had a token at all: 58 font sizes in
+   `px`, 20 duration literals, 22 `z-index` literals, 56 `border-radius`
+   declarations and 11 `box-shadow`s, every one an inline constant.
+
+   They live here rather than in a new stylesheet on purpose. `index.css`
+   asserts its own import order (`Editor.test.tsx`), and a media query adds no
+   cascade weight, so the *last* stylesheet wins a forced-colors tie. Splitting
+   the scales into `scales.css` would mean every forced-colors override for
+   them lands in a file that `hub.css` could override.
+
+   Geometry and motion are NOT repeated in the two media blocks at the bottom of
+   this file, and that is deliberate rather than an omission. Every colour token
+   added below is remapped there, because a brand colour left standing in
+   Windows High Contrast resolves to a pairing nobody contrast-checked. A
+   `z-index`, a radius or a duration cannot fail that way: they carry no colour,
+   and restating them would either be a no-op or would change rendering. The
+   `forced-colors` coverage test in `appShell.test.ts` is scoped to the colour
+   tokens for exactly this reason.
+   ========================================================================== */
+
+/* ---------- Type scale ---------- */
+
+/* A 1.25 (major third) scale anchored at 12px, which is the legibility floor
+   this change establishes: 12px is the size the app uses most (18 of 58
+   declarations) and the smallest it is allowed to render at. Written in `rem`
+   so the whole scale follows the reader's root size — which `body` used to pin
+   to 16px, making a browser font-size preference do nothing at all.
+
+   The ratio is honest from `2xs` up and the steps are exact, but it does *not*
+   land on 13, 14 or 18px, which is 26 of the 58 declarations. Snapping those
+   onto a step would have been a visual change, and that belongs in a change
+   that says it is a visual change. Until then those sizes stay as `rem`
+   literals, and only `2xs` and `xs` — 12px and 15px, both in use — are
+   referenceable by name.
+
+   Every step is now `calc(<rem> * var(--text-scale))`, and so is every one of
+   the thirty-four off-scale `rem` literals in the other stylesheets. That is
+   the load-bearing part: a text-size preference that moves eight named steps
+   and misses the other two-thirds of the type is not a text-size preference,
+   it is a rebrand that happens to have a settings screen. The multiplier is
+   applied at the declaration rather than to the root font size, because the
+   root is also what `--space-*` and `--radius-*` are measured in — scaling it
+   would make "bigger text" a layout change, and the density axis exists
+   precisely so that it does not have to be one. */
+:root {
+  --font-2xs: calc(0.75rem * var(--text-scale));
+  --font-xs: calc(0.9375rem * var(--text-scale));
+  --font-sm: calc(1.171875rem * var(--text-scale));
+  --font-md: calc(1.464844rem * var(--text-scale));
+  --font-lg: calc(1.831055rem * var(--text-scale));
+  --font-xl: calc(2.288818rem * var(--text-scale));
+  --font-2xl: calc(2.861023rem * var(--text-scale));
+  --font-3xl: calc(3.576279rem * var(--text-scale));
+
+  /* The hub's three viewport-relative headings. `rem` inside the clamp so they
+     scale with the reader's root size; the `vw` term is what makes them fluid,
+     and it is kept. The two bounds carry the multiplier and the `vw` term does
+     not, which is what makes the text preference raise the ceiling rather than
+     fight the viewport: at `xlarge` a 6vw heading on a narrow screen still
+     lands on the (scaled) minimum instead of overflowing its own clamp. */
+  --font-hero: clamp(calc(2.375rem * var(--text-scale)), 6vw, calc(3.75rem * var(--text-scale)));
+  --font-lede: clamp(calc(1rem * var(--text-scale)), 2vw, calc(1.125rem * var(--text-scale)));
+  --font-section: clamp(
+    calc(1.75rem * var(--text-scale)),
+    3.4vw,
+    calc(2.25rem * var(--text-scale))
+  );
+}
+
+/* ---------- Space scale ---------- */
+
+/* 4px steps. The codebase hand-picked 6/8/10/12/14/18px; of those, 8/12/20/32
+   are on the grid and 6/10/14/18 are not, because a 4px grid cannot express a
+   2px offset. Snapping those four would change layout, so they stay as
+   literals until someone owns that. */
+:root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+}
+
+/* ---------- Radius scale ---------- */
+
+/* Eight steps for the eight radii the app actually used — 8/10/12/14/16/18/20
+   and the pill — so every existing declaration has a name. Sub-8px radii
+   (2px, 3px, 4px) are deliberately smaller than a control radius rather than
+   accidentally off-scale: they are grabber dots, slider thumbs and crop grips,
+   and `50%` is a circle. `--radius` and `--ie-sheet-radius` are aliases so
+   their two existing consumers keep resolving to the same pixel value. */
+:root {
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.25rem;
+  --radius-full: 999px;
+  --ie-sheet-radius: var(--radius-3xl);
+}
+
+/* ---------- Elevation ---------- */
+
+/* Three steps, from the hub's existing shadows. Only the hub's are on this
+   ladder: the editor's are geometry-specific black-on-near-black sheets
+   (a menu, a toast, a bottom sheet and its desktop twin) with no shared
+   elevation story, and collapsing them here would have meant inventing one. */
+:root {
+  --shadow-1: 0 1px 2px rgba(28, 28, 26, 0.04), 0 8px 24px rgba(28, 28, 26, 0.05);
+  --shadow-2: 0 10px 24px rgba(28, 28, 26, 0.18);
+  --shadow-3: 0 16px 32px rgba(28, 28, 26, 0.09);
+}
+
+/* ---------- Stacking ---------- */
+
+/**
+ * THE ORDERING RULE, which until now lived only in `menu.module.css:2-4` and
+ * `useMenuPopover.tsx:49-51`:
+ *
+ *   canvas overlays  <  editor chrome  <  sheets  <  menus  <  toasts
+ *                   <  modal overlays  <  skip links and the crash boundary
+ *
+ * Two consequences worth stating, because both have been load-bearing:
+ *
+ *  1. `.canvasRegion` is `position: relative` with `z-index: auto`, so it is
+ *     NOT a stacking context. The canvas's own layers (2–7) and the editor's
+ *     (30+) share the root context, which is exactly why the canvas numbers
+ *     are low rather than internally stacked. They are offsets from
+ *     `--z-canvas` for that reason; shifting the floor moves the whole ladder.
+ *
+ *  2. The sheet's backdrop is one below the sheet so a click can reach it, and
+ *     the menu is one above the sheet because it is the only popover that has
+ *     to outlive the panel it was opened from.
+ */
+:root {
+  /* The canvas stack's floor: the gesture layer over the image. */
+  --z-canvas: 2;
+  /* The Hub's sticky header. Below the editor, which is `position: fixed` over
+     the whole viewport and would otherwise be painted under it. */
+  --z-nav: 20;
+  /* The editor shell and its top bar. */
+  --z-chrome: 30;
+  /* The bottom tab bar. Same band as the top bar by design — they are two
+     halves of one frame, and neither may overlap a sheet. */
+  --z-tabbar: 30;
+  /* The job progress bar and its label: over the canvas, under any sheet. */
+  --z-job: 35;
+  /* The inspector/sheet. Its backdrop is one below it. */
+  --z-sheet: 41;
+  /* A popover menu, above every sheet. */
+  --z-menu: 42;
+  /* Transient confirmations, which must survive a sheet being open. */
+  --z-toast: 60;
+  /* A full-bleed modal overlay such as the help panel. */
+  --z-overlay: 70;
+  /* The skip link, and the crash boundary. Nothing may cover either: the skip
+     link has to be reachable and visible at the moment it takes focus. */
+  --z-skip: 100;
+}
+
+/* ---------- Motion ---------- */
+
+/* Seven steps for the seven durations the stylesheets used, so every one is
+   nameable without changing a frame. Durations stay in `s` on purpose: unlike
+   type and space they are a property of the reader's hardware, not their font
+   size, and scaling them with the root would make a transition *slower* for
+   exactly the users who asked for larger text.
+
+   The ladder itself stays in plain seconds, deliberately. `--motion-factor`
+   is applied by every *consumer* as `calc(var(--dur-*) * var(--motion-factor))`
+   rather than folded in here, for two reasons. The ladder is the design
+   decision — 0.18s for a hover, 0.6s for a reveal — and a token that already
+   contained a user preference could no longer be read as that decision, or
+   asserted against it: `scales.test.ts` checks these seven ascend, and a value
+   of `calc(0.18s * var(--motion-factor))` is not a number a test can order.
+   And `0` is the only value `--motion-factor` ever takes besides `1`, so
+   folding it in would make every declaration a `calc` for one bit. */
+:root {
+  --dur-instant: 0.02s;
+  --dur-fast: 0.15s;
+  --dur-quick: 0.18s;
+  --dur-base: 0.2s;
+  --dur-sheet: 0.24s;
+  --dur-slow: 0.6s;
+  --dur-spinner: 0.9s;
+
+  /* The three easings in use. `decelerate` is the iOS sheet curve, and it is
+     the one that matters most: it is what makes a detent feel like it is
+     arriving rather than being pushed. */
+  --ease-standard: ease;
+  --ease-linear: linear;
+  --ease-decelerate: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ---------- Editor surface fills ---------- */
+
+/* Nineteen hard-coded `rgba(255, 255, 255, 0.03…0.09)` surfaces, named by what
+   they are for rather than by alpha, because the alpha is the part that was
+   never the point — a control at rest and a hovered control were both just
+   "a translucent white". Routing them through tokens is also what finally
+   makes them visible to High Contrast: as literals they were unremappable, and
+   the per-file forced-colors blocks had to enumerate every selector by hand. */
+:root {
+  --ie-fill-target: rgba(255, 255, 255, 0.03);
+  --ie-fill-sunken: rgba(255, 255, 255, 0.04);
+  --ie-fill-quiet: rgba(255, 255, 255, 0.05);
+  --ie-fill-rest: rgba(255, 255, 255, 0.06);
+  --ie-fill-hover: rgba(255, 255, 255, 0.08);
+  --ie-fill-active: rgba(255, 255, 255, 0.09);
+  --ie-fill-selected: rgba(255, 255, 255, 0.16);
+}
+
+/* ---------- Status ink ---------- */
+
+/* Two reds were in circulation. `#d1394a` on the editor's `#1c1c1e` chrome
+   measures 3.57:1 — below the 4.5:1 body-text threshold — while `#ff6b7a` on
+   the same ground measures 6.81:1. The darker red is the one that was losing,
+   so `--danger` is the lighter one and every red now reads from it. */
+:root {
+  --danger: #ff6b7a;
+  /* Two inks were in circulation on top of the accent. White on `--ie-accent`
+     (#1f6f5c) is 6.02:1 and near-black on `--ie-accent-bright` (#38b28c) is
+     7.11:1; both pass, so this is unification, not correction. */
+  --on-accent: #fff;
+  --on-accent-bright: #04140f;
+  /* A third ink that is neither of the above: the text and outlines drawn on
+     the editor's own dark scrims — a compare badge, a crop readout, a job
+     label, a toast, and the crop overlay's buttons, which live in a TSX object
+     rather than a stylesheet. These are white on `rgba(0,0,0,·)`, so they are
+     named separately from the accent inks rather than folded into either. */
+  --ie-on-scrim: #fff;
+}
+
+/* ---------- The skip link's reveal offset ---------- */
+
+/* Declared, and read by `base.css` with an 8px fallback that used to be the
+   only definition. `Hub.tsx` sets it inline per page and the editor's own copy
+   used to hard-code `60px` in a second place — two numbers for one idea, which
+   is the failure this removes. */
+:root {
+  --ie-skip-top: 8px;
+}
+
+/* ---------- Forced colours, for the scales above ---------- */
+
+@media (forced-colors: active) {
+  :root,
+  :root[data-theme],
+  :root:not([data-theme]) {
+    /* The editor's translucent surfaces all resolve to `Canvas`, which is what
+       the per-file forced-colors blocks were already doing selector by
+       selector. Stating it once here is what makes it true for the nineteen
+       fills that were literals, and for the ones a future control adds. */
+    --ie-fill-target: Canvas;
+    --ie-fill-sunken: Canvas;
+    --ie-fill-quiet: Canvas;
+    --ie-fill-rest: Canvas;
+    --ie-fill-hover: Canvas;
+    --ie-fill-active: Canvas;
+    --ie-fill-selected: Canvas;
+    /* `--danger` as a brand red resolves to whatever the theme picked, and the
+       two the app shipped were both brand reds that never met the text
+       threshold on this ground. `LinkText` is the system's error affordance and
+       is defined to contrast with `Canvas`. */
+    --danger: LinkText;
+    /* Accent fills become `Highlight`, and `Highlight`'s guaranteed partner is
+       `HighlightText` — not white. White on the pale blue WebKit substitutes
+       for `Highlight` is 1.49:1, which is the defect the per-file blocks were
+       written to correct; these two lines make it impossible to reintroduce by
+       forgetting a rule. */
+    --on-accent: HighlightText;
+    --on-accent-bright: HighlightText;
+    /* The scrims these sit on all collapse to `Canvas` in forced colors, so
+       white on them becomes white on white — invisible. The per-file blocks
+       already repaint each one; stating the ink here means a scrim added later
+       cannot be the one that breaks. */
+    --ie-on-scrim: CanvasText;
+    /* A 4%-alpha black shadow is invisible on a flat `Canvas` ground, and an
+       edge that cannot be seen is not an elevation cue. The `1px solid
+       CanvasText` border the per-file blocks already draw is the real one. */
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: none;
+  }
+}
+
+/* ---------- Increased contrast, for the scales above ---------- */
+
+@media (prefers-contrast: more) {
+  :root {
+    /* The fills become `Canvas` here too, for the same reason as above: a
+       translucent white edge is how the low-contrast ground asked for "more
+       contrast" is quietly refused. */
+    --ie-fill-target: Canvas;
+    --ie-fill-sunken: Canvas;
+    --ie-fill-quiet: Canvas;
+    --ie-fill-rest: Canvas;
+    --ie-fill-hover: Canvas;
+    --ie-fill-active: Canvas;
+    --ie-fill-selected: Canvas;
+    /* The status red is already the contrast-correct one on this ground, so it
+       holds; what has to change is the ink on the accent fills, which is the
+       pairing `prefers-contrast` users were reading at 1.49:1. */
+    --on-accent: #fff;
+    --on-accent-bright: #04140f;
+    --ie-on-scrim: #fff;
+  }
+}
+
+/* ---------- Reduced transparency, for the scales above ---------- */
+
+/**
+ * `prefers-reduced-transparency` had no occurrences in the repo before this
+ * block, which is the whole bug: roughly twenty surfaces are translucent white
+ * and five rules are `backdrop-filter`ed, and a reader who has told the OS
+ * that transparency is a problem was being given all of it anyway.
+ *
+ * The collapse is a *flatten*, not a substitution. Each value below is the
+ * colour the translucent one already resolves to against the editor's own
+ * `#1c1c1e` chrome at full alpha — `rgba(255,255,255,0.06)` over `#1c1c1e` is
+ * `#2a2a2c`, and that is what `--ie-fill-rest` becomes. So the control at rest
+ * and the control on hover keep the *same relationship to each other* and
+ * neither one disappears, which is the thing a naive "make it opaque" pass
+ * gets wrong: setting them all to one grey flattens a scale that exists to
+ * show where a finger is.
+ *
+ * `:root` alone is enough here, unlike the two blocks above it. Everything
+ * remapped below is declared on the bare `:root` and nowhere else, so there is
+ * no `:root:not([data-theme])` or `[data-theme]` rule for it to out-specify,
+ * and the rule's own order is what wins.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --ie-fill-target: #232325;
+    --ie-fill-sunken: #252527;
+    --ie-fill-quiet: #272729;
+    --ie-fill-rest: #2a2a2c;
+    --ie-fill-hover: #2e2e30;
+    --ie-fill-active: #303032;
+    --ie-fill-selected: #404042;
+    /* 12% white on the chrome is `#373739`. The hairline is the one token here
+       that is a *line* rather than a fill, and a 1px translucent border is the
+       clearest case of a thing that is not a thing at all when the background
+       behind it moves. */
+    --ie-hairline: #373739;
+    /* The soft ink is text, not a surface, and it is the one translucent token
+       a reader would actually fail to read: 60% of `#ebeaf5` on the chrome is
+       `#98989f`, which measures 5.94:1. Flattening it moves nothing a reader
+       can see and removes the last thing on screen that was still compositing.
+       The one cost of a single token: the same value is used over the canvas
+       ground too, where the exact flatten would be `#94949b` (6.21:1). The
+       difference is below the threshold of noticing and it is the price of not
+       having two tokens for one grey. */
+    --ie-ink-soft: #98989f;
+    /* The nav bar, the top bar and the tab bar are the three blurred surfaces
+       on the app. `--ie-chrome` at 82% over the canvas is `#1c1c1e` — the
+       editor's own opaque chrome token, so the collapsed value is a value that
+       already exists and is already forced to `Canvas` in High Contrast. */
+    --ie-chrome: #1c1c1e;
+  }
+}
+
+/* ==========================================================================
+   The four accents.
+
+   `ACCENTS` in `src/lib/appearance.ts` owns the values; this is the CSS half
+   of that table and `scales.test.ts` reads both and fails if a hex here is not
+   the hex there. Nothing here is derived, nothing here is re-picked, and
+   nothing here adds a seventh token: the six are `--accent`, `--accent-ink`,
+   `--accent-tint`, `--focus-ring` for the Hub, plus `--ie-accent` and
+   `--ie-accent-bright` for the editor.
+
+   Two scopes per accent, because there are two grounds. A text accent that
+   clears 4.5:1 on `#fafaf8` is invisible on `#1f2222`, so "the accent" is not
+   one value and a single `:root[data-accent='blue']` block would be wrong for
+   half the app whichever way it was wrong. The dark half is therefore keyed on
+   the same two selectors the dark palette itself uses — `[data-theme='dark']`
+   for an explicit choice and `:not([data-theme])` inside a
+   `prefers-color-scheme: dark` query for `system` — so an accent follows
+   whichever ground the theme resolved to, with no media query of its own to
+   disagree with `tokens.css:29`.
+
+   The editor's two tokens are the same in both halves and that is not an
+   oversight: the editor is hardcoded dark whatever the Hub is doing
+   (`tokens.css:81`), so a light-scope `--ie-accent` would change the editor
+   when the Hub did not.
+
+   These blocks come *after* both media blocks on purpose, and the
+   `!important`s in the two blocks above are what makes that safe. Order alone
+   would be enough for the light scope; the dark scope is a class more specific
+   and would win outright.
+   ========================================================================== */
+
+/* ---------- Evergreen (the default) ---------- */
+
+:root[data-accent='green'] {
+  --accent: #1f6f5c;
+  --accent-ink: #143f35;
+  --accent-tint: #e7f1ee;
+  --ie-accent: #257a68;
+  --ie-accent-bright: #38b28c;
+  --focus-ring: #0b5c48;
+}
+:root[data-theme='dark'][data-accent='green'] {
+  --accent: #4fa98c;
+  --accent-ink: #a9e0cc;
+  --accent-tint: #1b342c;
+  --ie-accent: #257a68;
+  --ie-accent-bright: #38b28c;
+  --focus-ring: #7fe0bd;
+}
+
+/* ---------- Cobalt ---------- */
+
+:root[data-accent='blue'] {
+  --accent: #1b5e9c;
+  --accent-ink: #123a63;
+  --accent-tint: #e6eefa;
+  --ie-accent: #2b73b8;
+  --ie-accent-bright: #3f97e8;
+  --focus-ring: #0d4a7d;
+}
+:root[data-theme='dark'][data-accent='blue'] {
+  --accent: #74b6f0;
+  --accent-ink: #c3e2ff;
+  --accent-tint: #1c3252;
+  --ie-accent: #2b73b8;
+  --ie-accent-bright: #3f97e8;
+  --focus-ring: #9ed0f7;
+}
+
+/* ---------- Iris ---------- */
+
+:root[data-accent='violet'] {
+  --accent: #5b3aa8;
+  --accent-ink: #361f6b;
+  --accent-tint: #efe9fb;
+  --ie-accent: #7657c0;
+  --ie-accent-bright: #9d7bf5;
+  --focus-ring: #472c8c;
+}
+:root[data-theme='dark'][data-accent='violet'] {
+  --accent: #b39af0;
+  --accent-ink: #dcd0ff;
+  --accent-tint: #302757;
+  --ie-accent: #7657c0;
+  --ie-accent-bright: #9d7bf5;
+  --focus-ring: #c6b0ff;
+}
+
+/* ---------- Ember ---------- */
+
+:root[data-accent='amber'] {
+  --accent: #9a5208;
+  --accent-ink: #5f2c05;
+  --accent-tint: #fbeadb;
+  --ie-accent: #a35708;
+  --ie-accent-bright: #e59a3c;
+  --focus-ring: #7d3c05;
+}
+:root[data-theme='dark'][data-accent='amber'] {
+  --accent: #f0a05a;
+  --accent-ink: #ffd7ae;
+  --accent-tint: #422c16;
+  --ie-accent: #a35708;
+  --ie-accent-bright: #e59a3c;
+  --focus-ring: #ffc98d;
+}
+
+/* The `system` half of every dark scope above. It has to live in a
+   `prefers-color-scheme` query for the same reason the dark palette does at
+   `tokens.css:29`: with `theme: 'system'` there is no `data-theme` at all, so
+   `:not([data-theme])` alone would match a reader whose OS is *light* and hand
+   them the dark accent on a light ground. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme])[data-accent='green'] {
+    --accent: #4fa98c;
+    --accent-ink: #a9e0cc;
+    --accent-tint: #1b342c;
+    --ie-accent: #257a68;
+    --ie-accent-bright: #38b28c;
+    --focus-ring: #7fe0bd;
+  }
+  :root:not([data-theme])[data-accent='blue'] {
+    --accent: #74b6f0;
+    --accent-ink: #c3e2ff;
+    --accent-tint: #1c3252;
+    --ie-accent: #2b73b8;
+    --ie-accent-bright: #3f97e8;
+    --focus-ring: #9ed0f7;
+  }
+  :root:not([data-theme])[data-accent='violet'] {
+    --accent: #b39af0;
+    --accent-ink: #dcd0ff;
+    --accent-tint: #302757;
+    --ie-accent: #7657c0;
+    --ie-accent-bright: #9d7bf5;
+    --focus-ring: #c6b0ff;
+  }
+  :root:not([data-theme])[data-accent='amber'] {
+    --accent: #f0a05a;
+    --accent-ink: #ffd7ae;
+    --accent-tint: #422c16;
+    --ie-accent: #a35708;
+    --ie-accent-bright: #e59a3c;
+    --focus-ring: #ffc98d;
+  }
 }

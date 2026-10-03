@@ -1,0 +1,109 @@
+/* The passport guides are drawn inside the crop box, so everything here is a
+   percentage of the passport frame and never of the whole photo (D5-F10). */
+.guideBox {
+  position: absolute;
+  pointer-events: none;
+}
+/* Every line and band here is drawn in the accent, and all five were
+   `rgba(56, 178, 140, …)` — the *green* accent, spelled out, over somebody's
+   face. `color-mix` from `--ie-accent-bright` keeps the alphas the geometry was
+   designed around (a hard bound reads harder than the advisory mid-line, which
+   is the only thing distinguishing the two) while following the accent a reader
+   actually chose. The literal is the first declaration so an engine without
+   `color-mix` renders exactly what it renders today. */
+.headBand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(56, 178, 140, 0.12);
+  background: color-mix(in srgb, var(--ie-accent-bright) 12%, transparent);
+  border-top: 1px dashed rgba(56, 178, 140, 0.7);
+  border-top: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, transparent);
+  border-bottom: 1px dashed rgba(56, 178, 140, 0.7);
+  border-bottom: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, transparent);
+}
+/* The advisory mid-line is a target, not a limit: it is dashed and brighter so
+   it cannot be mistaken for one of the two hard bounds. */
+.eyeAdvisory {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dashed rgba(56, 178, 140, 0.95);
+  border-top: 2px dashed color-mix(in srgb, var(--ie-accent-bright) 95%, transparent);
+}
+.eyeBound {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid rgba(56, 178, 140, 0.55);
+  border-top: 1px solid color-mix(in srgb, var(--ie-accent-bright) 55%, transparent);
+}
+.label {
+  position: absolute;
+  right: 4px;
+  transform: translateY(-100%);
+  font-size: var(--font-2xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+.boundLabel {
+  composes: label;
+  font-weight: 400;
+  opacity: 0.75;
+}
+.warning {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  max-width: 100%;
+  font-size: var(--font-2xs);
+  font-weight: 600;
+  color: #ffd7a1;
+  background: rgba(120, 60, 0, 0.85);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-bottom: 2px;
+}
+
+@media (forced-colors: active) {
+  .headBand,
+  .eyeAdvisory,
+  .eyeBound {
+    border-color: Highlight;
+    background: Canvas;
+  }
+  .label,
+  .warning {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/* The passport guides are the last overlays in the app with no opaque version,
+   and they are the ones drawn *on a face*, so the collapse matters most here.
+   The two labels go to an opaque black at the alpha they already had (92% and
+   85% white on black is white, and the warning's brown is a warning colour
+   rather than a surface, so it is left alone), and the band's fill is mixed
+   against the canvas ground so it is still the accent the reader chose. */
+@media (prefers-reduced-transparency: reduce) {
+  .headBand {
+    background: color-mix(in srgb, var(--ie-accent-bright) 12%, var(--ie-canvas-bg));
+  }
+  .label {
+    color: #fff;
+    background: #000;
+  }
+  .warning {
+    background: #4a2500;
+  }
+}

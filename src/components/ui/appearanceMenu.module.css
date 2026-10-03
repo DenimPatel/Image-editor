@@ -1,0 +1,545 @@
+/* The appearance panel.
+   Every colour below is an existing token. The Hub's palette and the editor's
+   hardcoded-dark one share nothing below the accents, so the panel reads its
+   own five custom properties — declared once for the Hub and overridden once
+   for the editor — and every rule inside uses those. A rule that reached for
+   `--ink` inside the editor would be a near-black label on a near-black panel,
+   which is exactly the class of failure the token work exists to prevent.
+
+   Every size is a `calc()` over one of the four appearance multipliers, so
+   choosing "Roomy" grows the panel along with the chrome, and the previews move
+   with it. */
+
+/* Deliberately *not* a positioning context. The panel is much wider than the
+   button that opens it, so anchoring it to the button's own right edge pushes
+   it off the left of a narrow viewport — a 268px panel hanging off a 90px
+   trigger near the middle of a 390px screen. Staying static hands the panel to
+   the nearest positioned ancestor instead: the nav on the Hub, the editor shell
+   in the editor, both of which span the width the panel actually needs. */
+.anchor {
+  position: static;
+  display: inline-flex;
+}
+
+.trigger {
+  white-space: nowrap;
+}
+
+.panel {
+  --panel-bg: var(--surface);
+  --panel-line: var(--line);
+  --panel-ink: var(--ink);
+  --panel-ink-soft: var(--ink-soft);
+  --panel-fill: var(--bg-alt);
+  --panel-selected: var(--accent-tint);
+  --panel-accent: var(--accent);
+  --panel-focus: var(--focus-ring);
+  --panel-gap: var(--space-2);
+
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  min-width: calc(268px * var(--density-factor));
+  max-width: calc(100vw - var(--space-3) - var(--space-3));
+  /* The cap is the space below the chrome *and* above the fold. Capping at the
+     full viewport height instead lets the panel's own `top` push its foot — the
+     reset button, the "not saved" notice — off the bottom of the screen, which
+     is where the panel keeps the things a reader most needs to see. The body
+     scrolls, so nothing is unreachable; the head and foot are simply pinned.
+
+     `--ie-panel-chrome` is how much chrome is *above* the panel, which is a
+     property of the surface rather than of the panel: the editor's top bar is
+     48px, the Hub's nav is 78px on one row and two rows on a phone. `base.css`
+     declares it on `.nav` and the fallback is the editor's own figure plus a
+     margin. Measured at 390×844 with "Extra large" text, "Roomy" density and the
+     panel open, the old four-term `100dvh - space-3 - space-8*3` left the
+     panel's bottom edge 4px below the fold with a two-row nav above it. */
+  max-height: calc(100vh - var(--ie-panel-chrome, 108px));
+  max-height: calc(100dvh - var(--ie-panel-chrome, 108px));
+  padding: var(--space-3);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow-2);
+  color: var(--panel-ink);
+  font-size: calc(0.8125rem * var(--text-scale));
+}
+
+.alignEnd {
+  right: 8px;
+}
+
+.alignStart {
+  left: 8px;
+}
+
+/* The editor renders the panel as a sibling of its top bar, because the top bar
+   is a stacking context at 30 and the desktop inspector sits at 41. It is
+   therefore positioned against the editor shell rather than against a trigger,
+   and painted from the editor's own chrome tokens. Declared after the align
+   rules so its `right` wins the same-specificity tie. */
+.editor {
+  --panel-bg: var(--ie-chrome-solid);
+  --panel-line: var(--ie-hairline);
+  --panel-ink: var(--ie-ink);
+  --panel-ink-soft: var(--ie-ink-soft);
+  --panel-fill: var(--ie-fill-quiet);
+  --panel-selected: var(--ie-fill-active);
+  --panel-accent: var(--ie-accent-bright);
+  --panel-focus: var(--ie-accent-bright);
+  /* `--ie-topbar-height` is declared on `.editor` in `editor.module.css`, so it
+     is inherited here. A hard-coded 48px sat 4px under a 52px bar. */
+  --ie-panel-chrome: calc(var(--ie-topbar-height, 52px) + var(--space-3));
+
+  top: var(--ie-topbar-height, calc(52px + var(--ie-safe-top)));
+  right: 8px;
+  z-index: var(--z-menu);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * No ring on the panel itself, and for the same reason `HelpOverlay`'s is gone:
+ * the panel is `tabIndex={-1}` and is focused by script when it opens, so
+ * `base.css`'s `:where(button, [tabindex]):focus-visible` rule matched it and drew a
+ * permanent accent-coloured ring around the whole sheet from the moment it appeared.
+ * `:where()` carries zero specificity, so this class wins on its own.
+ *
+ * Nothing is lost: the panel is a labelled `role="dialog"`, and the first Tab lands
+ * on a real control inside it. This is the standard treatment for a container that
+ * is focused programmatically rather than reached by keyboard.
+ */
+.panel:focus,
+.panel:focus-visible {
+  outline: none;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--panel-line);
+}
+
+.title {
+  margin: 0;
+  font-size: calc(0.9375rem * var(--text-scale));
+  font-weight: 700;
+  color: var(--panel-ink);
+}
+
+.close {
+  padding: 4px 8px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--panel-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--panel-fill);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  overflow-y: auto;
+}
+
+.field {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-inline-size: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-size: calc(0.75rem * var(--text-scale));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--panel-ink-soft);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--panel-gap);
+}
+
+.choice {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  min-width: calc(56px * var(--density-factor));
+  padding: var(--space-2);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--panel-fill);
+}
+
+/* The current value, and only the current value, is marked. Marking all of them
+   would be a legend; marking none of them would be the row of words this panel
+   exists to replace. */
+.choice[data-current='true'] {
+  border-color: var(--panel-accent);
+  background: var(--panel-selected);
+}
+
+/* Kept in the layout, not `display: none`, so it is still focusable, still the
+   radio group's arrow-key roving target, and — spanning the tile rather than
+   sitting in a corner of it — still the thing a pointer lands on. A 1px target
+   with `pointer-events: none` is invisible to a screen reader's hit testing and
+   to anything driving the control by clicking it. */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.choice:has(.input:focus-visible) {
+  outline: 3px solid var(--panel-focus);
+  outline-offset: 2px;
+}
+
+.choiceLabel {
+  font-size: calc(0.75rem * var(--text-scale));
+  color: var(--panel-ink);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.choiceCheck {
+  width: calc(13px * var(--icon-scale));
+  height: calc(13px * var(--icon-scale));
+  color: var(--panel-accent);
+}
+
+/* ---------- Accent preview ---------- */
+
+.swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(26px * var(--density-factor));
+  border-radius: var(--radius-xs);
+  font-size: calc(0.8125rem * var(--text-scale));
+  font-weight: 700;
+}
+
+/* ---------- Density preview ----------
+   The three row heights are the three `--density-factor` values, and the
+   `AppearanceMenu` test reads them back out of tokens.css so a preview cannot
+   quietly disagree with the multiplier it is previewing. */
+
+.densityPreview {
+  --preview-row: calc(8px * 1);
+
+  display: grid;
+  gap: calc(2px * var(--density-factor));
+  width: 100%;
+}
+
+.densityPreview > span {
+  display: block;
+  height: calc(var(--preview-row) * var(--density-factor));
+  border-radius: var(--radius-xs);
+  background: var(--panel-ink-soft);
+}
+
+.densityPreview[data-step='compact'] {
+  --preview-row: calc(8px * 0.875);
+}
+
+.densityPreview[data-step='roomy'] {
+  --preview-row: calc(8px * 1.125);
+}
+
+/* ---------- Text preview ----------
+   Four named steps of the existing type scale rather than four literals, so
+   each sample is a size the app already renders somewhere. */
+
+.textPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(30px * var(--density-factor));
+  color: var(--panel-ink);
+  line-height: 1;
+}
+
+.textPreview[data-step='small'] {
+  font-size: var(--font-2xs);
+}
+
+.textPreview[data-step='default'] {
+  font-size: var(--font-xs);
+}
+
+.textPreview[data-step='large'] {
+  font-size: var(--font-sm);
+}
+
+.textPreview[data-step='xlarge'] {
+  font-size: var(--font-md);
+}
+
+/* ---------- Theme preview ----------
+   A miniature of the page itself: a header band over a body, in the colours the
+   chosen theme will actually paint. It has to be 30px like the text and icon
+   previews, because the panel's whole claim is that every option shows you what
+   it does — and a row of tiles that are 47px tall next to tiles that are 79px
+   tall is a panel that has already broken that claim twice before the reader has
+   read a label.
+
+   The band is the nav and the body is the page, so the light swatch is a pale
+   page under a white header and the dark one is a near-black page under a
+   near-black header: the two differ in exactly the way the setting changes. The
+   colours themselves are inline, from `ACCENT_SURFACES` in the appearance model,
+   because the tokens in scope here are the *panel's* own theme — the one the
+   reader is already in, so a swatch drawn from them would show the current theme
+   under all three labels.
+
+   The frame is `--panel-ink-soft`, not `--panel-line`, and the reason is a
+   measurement rather than a preference. The miniature paints two literal hexes,
+   so the Dark option is a near-black rectangle and the Light option a near-white
+   one; on the editor — which is dark in every theme, and is therefore the only
+   surface most readers ever open this panel on — the Dark swatch's body sat at
+   1.00:1 against the panel behind it and its chrome band at 1.09:1. Framed in
+   the 12%-white `--panel-line` that every border in this panel uses, "Dark"
+   rendered as an empty box with a caption under it: the exact shape a reader
+   recognises as a swatch that failed to load, next to two that plainly worked.
+   The Hub has the same defect mirrored — its `--surface` is white, so there it is
+   *Light* that disappears.
+
+   `--panel-ink-soft` is what the density preview's bars and the text and icon
+   previews are already drawn in, so this also brings the six previews into one
+   language rather than leaving the theme group as the one that needed the panel
+   to carry its own weight. It exists in both scopes, so no token is added. */
+
+.themePreview {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  width: 100%;
+  height: calc(30px * var(--density-factor));
+  overflow: hidden;
+  border: 1px solid var(--panel-ink-soft);
+  border-radius: var(--radius-xs);
+}
+
+.themePreviewBar {
+  display: block;
+  height: calc(9px * var(--density-factor));
+  border-bottom: 1px solid var(--panel-line);
+}
+
+.themePreviewBody {
+  display: block;
+  flex: 1;
+}
+
+/* ---------- Icon preview ---------- */
+
+.iconPreview {
+  --preview-icon: calc(14px * 1);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(30px * var(--density-factor));
+  color: var(--panel-ink);
+}
+
+.iconPreview[data-step='small'] {
+  --preview-icon: calc(14px * 0.875);
+}
+
+.iconPreview[data-step='large'] {
+  --preview-icon: calc(14px * 1.25);
+}
+
+.iconPreview svg {
+  width: calc(var(--preview-icon) * var(--icon-scale));
+  height: calc(var(--preview-icon) * var(--icon-scale));
+}
+
+/* ---------- Foot ---------- */
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--panel-line);
+}
+
+.reset {
+  align-self: flex-start;
+  min-height: calc(30px * var(--density-factor));
+  padding: 4px 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--panel-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.reset:hover:not(:disabled) {
+  background: var(--panel-fill);
+}
+
+.reset:disabled {
+  color: var(--panel-ink-soft);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The refusal is stated in `--panel-ink` on a `--panel-fill` ground rather than
+   in a red: a warning colour that has to clear 4.5:1 on both grounds would be a
+   fourth palette entry to keep measured, and the border carries the signal. */
+.warning {
+  margin: 0;
+  padding: var(--space-2);
+  border-left: 3px solid var(--panel-accent);
+  border-radius: var(--radius-xs);
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+  font-size: calc(0.75rem * var(--text-scale));
+  line-height: 1.35;
+}
+
+/* The nav variant. The nav is a flex row, so an inline note would land beside
+   the toggle rather than under it, and the note is about a state change that
+   happened at the toggle. `.anchor` is static, so this lands under the nav. */
+.navNotice {
+  --panel-fill: var(--surface);
+  --panel-ink: var(--ink);
+  --panel-accent: var(--accent);
+
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 8px;
+  z-index: var(--z-menu);
+  width: max-content;
+  max-width: calc(240px * var(--density-factor));
+  text-align: left;
+  box-shadow: var(--shadow-2);
+}
+
+@media (forced-colors: active) {
+  .panel,
+  .editor {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    color: CanvasText;
+  }
+  .choice,
+  .close,
+  .reset {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+  .choice[data-current='true'] {
+    border: 2px solid Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .choiceLabel,
+  .title,
+  .warning {
+    color: CanvasText;
+  }
+  /* …except on the selected tile, whose background is `Highlight` and whose text
+     has to be `HighlightText`. The rule above is what makes this defect easy to
+     miss: it sets `color` on the label *span*, and a direct declaration always
+     beats an inherited one however weak the selector, so
+     `.choice[data-current='true'] { color: HighlightText }` three rules above
+     never reaches the text. Chromium's forced palette paints `Highlight` as a
+     mid-dark violet, and `CanvasText` as black on it — 2.33:1 for the one label
+     in the panel a reader is looking for. The check icon has the same shape of
+     bug and is fixed with the same rule below. */
+  .choice[data-current='true'] .choiceLabel,
+  .choice[data-current='true'] .textPreview {
+    color: HighlightText;
+  }
+  /* `GrayText` is the system colour for *disabled* text, and the OS does not
+     promise it against `Canvas` — WebKit paints it a pale mid-grey on white, which
+     1.81:1. A fieldset legend is not disabled; it is the heading for the group
+     below it, and it is the text a screen-reader user lands on first. So the
+     legend takes `CanvasText` and `GrayText` stays on the one control that is
+     genuinely disabled. */
+  .legend {
+    color: CanvasText;
+  }
+  .reset:disabled {
+    color: GrayText;
+  }
+  .choiceCheck,
+  .densityPreview > span,
+  .textPreview,
+  .iconPreview {
+    color: CanvasText;
+    background: Canvas;
+  }
+  .choiceCheck,
+  .textPreview,
+  .iconPreview {
+    background: none;
+  }
+  .densityPreview > span {
+    background: CanvasText;
+  }
+  /* The theme swatch paints two literal hexes as inline backgrounds, which
+     forced colours would otherwise paint over with `Canvas` — leaving a labelled
+     empty box, which is worse than no swatch because the label now reads as a
+     caption for something. An outline keeps the shape honest, and the label
+     already carries the answer. */
+  .themePreview {
+    border: 1px solid CanvasText;
+    forced-color-adjust: none;
+  }
+  .themePreviewBar,
+  .themePreviewBody {
+    background: Canvas;
+  }
+  .warning {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .input:focus-visible,
+  .choice:has(.input:focus-visible),
+  .panel:focus-visible,
+  :where(button, input, label, a):focus-visible {
+    outline: 3px solid Highlight;
+  }
+}

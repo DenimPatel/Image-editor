@@ -6,13 +6,13 @@
  */
 
 export type History<T> = {
-  past: T[];
-  present: T;
-  future: T[];
-};
+  past: T[]
+  present: T
+  future: T[]
+}
 
-export const MAX_HISTORY = 50;
-export const COALESCE_MS = 600;
+export const MAX_HISTORY = 50
+export const COALESCE_MS = 600
 
 /**
  * Transient coalescing state. An "interaction" is an explicit begin/end span
@@ -21,39 +21,50 @@ export const COALESCE_MS = 600;
  * events across one drag become a single undo step.
  */
 export type InteractionState = {
-  key: string | null;
-  pastPushed: boolean;
-  lastKey: string | null;
-  lastAt: number;
-};
+  key: string | null
+  pastPushed: boolean
+  lastKey: string | null
+  lastAt: number
+}
 
 export const initialInteraction: InteractionState = {
   key: null,
   pastPushed: false,
   lastKey: null,
   lastAt: 0,
-};
+}
 
 export type EditOptions = {
-  key?: string | null;
-  transient?: boolean;
-  now?: number;
-};
+  /** Implicit-coalescing key; same key inside `COALESCE_MS` merges into one step. */
+  key?: string | null
+  /**
+   * A transient edit updates `present` and drops `future` but never becomes an
+   * undo step. For state that is not an image edit — export settings, the
+   * render-loop scratch pad — where a 50-entry history of quality/dpi nudges
+   * would evict the user's actual work.
+   */
+  transient?: boolean
+  now?: number
+}
 
 export function createHistory<T>(present: T): History<T> {
-  return { past: [], present, future: [] };
+  return { past: [], present, future: [] }
 }
 
 function pushPast<T>(past: T[], present: T): T[] {
-  return [...past, present].slice(-MAX_HISTORY);
+  return [...past, present].slice(-MAX_HISTORY)
 }
 
 export function beginInteraction(interaction: InteractionState, key: string): InteractionState {
-  return { ...interaction, key, pastPushed: false };
+  // Only a span that starts from a closed state clears `pastPushed`. A nested
+  // begin (a composite action that opens its own span inside another) is still
+  // the same gesture, so it must not unlock a second `past` entry.
+  const pastPushed = interaction.key === null ? false : interaction.pastPushed
+  return { ...interaction, key, pastPushed }
 }
 
 export function endInteraction(interaction: InteractionState): InteractionState {
-  return { ...interaction, key: null, pastPushed: false, lastKey: null };
+  return { ...interaction, key: null, pastPushed: false, lastKey: null }
 }
 
 /**
@@ -67,36 +78,46 @@ export function applyEdit<T>(
   options: EditOptions = {},
 ): { history: History<T>; interaction: InteractionState } {
   if (Object.is(next, history.present)) {
-    return { history, interaction };
+    return { history, interaction }
   }
 
-  const now = options.now ?? Date.now();
-  const key = options.key ?? null;
+  if (options.transient === true) {
+    // Applied, but not undoable: `future` is still dropped because the document
+    // genuinely moved on, and the interaction bookkeeping is untouched so the
+    // enclosing span still pushes its own single entry.
+    return {
+      history: { past: history.past, present: next, future: [] },
+      interaction,
+    }
+  }
 
-  let shouldPush: boolean;
+  const now = options.now ?? Date.now()
+  const key = options.key ?? null
+
+  let shouldPush: boolean
   if (interaction.key !== null) {
     // Inside an explicit interaction: push only the first mutation.
-    shouldPush = !interaction.pastPushed;
+    shouldPush = !interaction.pastPushed
   } else {
     const merging =
-      key !== null && interaction.lastKey === key && now - interaction.lastAt < COALESCE_MS;
-    shouldPush = !merging;
+      key !== null && interaction.lastKey === key && now - interaction.lastAt < COALESCE_MS
+    shouldPush = !merging
   }
 
   const historyNext: History<T> = {
     past: shouldPush ? pushPast(history.past, history.present) : history.past,
     present: next,
     future: [],
-  };
+  }
 
   const interactionNext: InteractionState = {
     ...interaction,
     pastPushed: interaction.key !== null ? true : interaction.pastPushed,
     lastKey: interaction.key !== null ? null : key,
     lastAt: now,
-  };
+  }
 
-  return { history: historyNext, interaction: interactionNext };
+  return { history: historyNext, interaction: interactionNext }
 }
 
 export function undo<T>(
@@ -104,9 +125,9 @@ export function undo<T>(
   interaction: InteractionState = initialInteraction,
 ): { history: History<T>; interaction: InteractionState } {
   if (history.past.length === 0) {
-    return { history, interaction: endInteraction(interaction) };
+    return { history, interaction: endInteraction(interaction) }
   }
-  const previous = history.past[history.past.length - 1];
+  const previous = history.past[history.past.length - 1]
   return {
     history: {
       past: history.past.slice(0, -1),
@@ -114,7 +135,7 @@ export function undo<T>(
       future: [history.present, ...history.future],
     },
     interaction: endInteraction(interaction),
-  };
+  }
 }
 
 export function redo<T>(
@@ -122,9 +143,9 @@ export function redo<T>(
   interaction: InteractionState = initialInteraction,
 ): { history: History<T>; interaction: InteractionState } {
   if (history.future.length === 0) {
-    return { history, interaction: endInteraction(interaction) };
+    return { history, interaction: endInteraction(interaction) }
   }
-  const [next, ...rest] = history.future;
+  const [next, ...rest] = history.future
   return {
     history: {
       past: pushPast(history.past, history.present),
@@ -132,13 +153,13 @@ export function redo<T>(
       future: rest,
     },
     interaction: endInteraction(interaction),
-  };
+  }
 }
 
 export function canUndo<T>(history: History<T>): boolean {
-  return history.past.length > 0;
+  return history.past.length > 0
 }
 
 export function canRedo<T>(history: History<T>): boolean {
-  return history.future.length > 0;
+  return history.future.length > 0
 }

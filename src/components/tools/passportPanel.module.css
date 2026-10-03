@@ -1,0 +1,361 @@
+/**
+ * The Passport panel's own rules.
+ *
+ * Three things live here that no other stylesheet has: the millimetre field's
+ * unit badge, the sheet figure and the frame figure. Everything else in the
+ * panel is still `tools.module.css`, because a second chip system, a second
+ * button and a second heading would be a second vocabulary — `ratioChips` is
+ * where the document chips come from, and they are the same chips the crop
+ * panel draws.
+ *
+ * Both figures are SVG, and both are drawn in millimetres: the viewBox is the
+ * sheet or the photo at its real size, so the rectangles inside it are at their
+ * true relative positions rather than at positions someone drew. `planSheet`
+ * hands the panel those numbers in pixels at the spec's DPI and this file never
+ * touches them.
+ */
+
+/* ---------- The document summary ---------- */
+
+/**
+ * The rule, drawn. A 35 × 45 mm frame with the head band the spec solves for
+ * and the eye line it puts in it, so "head 29–34 mm" has a shape to aim at
+ * before the crop is made. Sized in `rem` rather than `px` because it has no
+ * intrinsic scale of its own: it is a diagram at a comfortable size, and the
+ * reader's text-size preference should carry it.
+ */
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.frameFigure {
+  flex: none;
+  width: 5.25rem;
+}
+.frameFigure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.frameEdge {
+  fill: var(--ie-fill-quiet);
+  stroke: var(--ie-hairline);
+}
+/* The head band: the spec's own solved placement, from `guideLayout`. */
+.frameHead {
+  fill: var(--ie-accent-bright);
+  fill-opacity: 0.22;
+}
+/* The eye line the framing puts in, and the two bounds it has to stay between. */
+.frameEye {
+  stroke: var(--ie-accent-bright);
+  stroke-opacity: 0.7;
+}
+.frameEyeBound {
+  stroke: var(--ie-ink-soft);
+  stroke-opacity: 0.6;
+  stroke-dasharray: 3 3;
+}
+.summaryText {
+  flex: 1;
+  min-width: 0;
+}
+.summaryLine {
+  display: block;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink);
+  line-height: 1.5;
+}
+.summaryFigures {
+  display: block;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- The millimetre fields ---------- */
+
+.sizeFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* `min-width: 0`, which is the whole of why this grid does not scroll sideways.
+   A grid item defaults to `min-width: auto`, and `auto` resolves to the item's
+   *min-content* size — and a `<input>`'s min-content size is its intrinsic width
+   from the `size` attribute, roughly 202px, whatever `min-width: 0` on the input
+   itself says. So two tracks of `1fr` were each asked to be at least that, the
+   grid came out 77px wider than the column, and the whole passport panel — every
+   control in it — was reachable only by scrolling the panel sideways. Zeroing the
+   item's automatic minimum lets `1fr` divide the column, and `.sizeInput`'s own
+   `min-width: 0` then does its job inside `.sizeBox`. */
+.sizeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+}
+.sizeBox {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-rest);
+  padding-right: 8px;
+  min-height: calc(40px * var(--density-factor));
+}
+.sizeBox:focus-within {
+  border-color: var(--ie-accent-bright);
+}
+.sizeInput {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+  padding: 8px 10px;
+}
+.sizeInput:focus {
+  outline: none;
+}
+/* The unit, inside the box rather than in the label, so it cannot be read as
+   part of the number and cannot be lost when the field is described. */
+.sizeUnit {
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  flex: none;
+}
+.sizeInvalid {
+  border-color: var(--danger);
+}
+
+/* ---------- The print sheet ---------- */
+
+.sheetFigure {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+.sheetSvg {
+  display: block;
+  width: 100%;
+  max-width: 9.5rem;
+  height: auto;
+}
+.sheetPaper {
+  fill: var(--ie-fill-quiet);
+  stroke: var(--ie-hairline);
+}
+/* Dashed, because that is the instruction: these edges are where to cut. */
+.sheetPhoto {
+  fill: var(--ie-accent-bright);
+  fill-opacity: 0.18;
+  stroke: var(--ie-accent-bright);
+  stroke-dasharray: 6 4;
+}
+
+/* ---------- Compliance ---------- */
+
+.verdict {
+  font-size: calc(0.8125rem * var(--text-scale));
+  color: var(--ie-ink);
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+.rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+.pill {
+  flex: none;
+  width: 56px;
+  font-size: var(--font-2xs);
+  font-weight: 700;
+  text-align: center;
+  border-radius: var(--radius-full);
+  border: 1px solid currentColor;
+  padding: 1px 0;
+  min-height: calc(20px * var(--density-factor));
+  line-height: 1.4;
+}
+/* `#e0a53b` is this panel's existing warning colour, carried over unchanged:
+   `tokens.css` has no warning token, and minting one here is a decision for
+   the token owner rather than for a panel. It is 7.1:1 on the editor chrome,
+   beside the other two at 6.0:1 and 6.8:1. */
+.pillPass {
+  color: var(--ie-accent-bright);
+}
+.pillWarn {
+  color: #e0a53b;
+}
+.pillFail {
+  color: var(--danger);
+}
+.ruleBody {
+  flex: 1;
+  min-width: 0;
+}
+.ruleHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ruleName {
+  font-size: calc(0.8125rem * var(--text-scale));
+  color: var(--ie-ink);
+  font-weight: 600;
+}
+/* Says the number below it was not read off this photo. A word rather than a
+   colour, because a badge that is only a tint is a badge nobody can read. */
+.badge {
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-full);
+  padding: 0 6px;
+}
+/* The measurement and the requirement, side by side, in figures. A rule that
+   fails has to say what it read and what it wanted; `tabular-nums` is what
+   keeps the two columns comparable down the list. */
+.reading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: var(--font-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+.measured {
+  color: var(--ie-ink);
+}
+.required {
+  color: var(--ie-ink-soft);
+}
+.detail {
+  display: block;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+/* ---------- The document's own notes ---------- */
+
+/* Reference prose, not the current state: the measured figures are above, and
+   the whole of a photo checklist is taller than the sheet it sits in. */
+.rules {
+  margin: 6px 0 0;
+}
+/* The disclosure has to look like one. A bare `<summary>` reads as a line of
+   text in this app's reset, so the triangle is drawn here and turned by the
+   open state — and nothing about it animates, because a rotating triangle that
+   respects `prefers-reduced-motion` is more machinery than a chevron is worth. */
+.rulesSummary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  min-height: calc(28px * var(--density-factor));
+}
+.rulesSummary::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+.rules[open] .rulesSummary::before {
+  margin-left: 2px;
+  border-left-color: transparent;
+  border-top-color: currentColor;
+  border-top-width: 5px;
+  border-right: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-bottom-width: 0;
+}
+.rulesList {
+  font-size: var(--font-2xs);
+  color: var(--ie-ink-soft);
+  line-height: 1.5;
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* ---------- Forced colours / increased contrast ---------- */
+
+@media (forced-colors: active) {
+  .frameEdge,
+  .sheetPaper,
+  .sheetPhoto,
+  .sizeBox,
+  .rule,
+  .badge,
+  .pill {
+    border: 1px solid CanvasText;
+  }
+  /* The head band and the photo rectangles are fills the system palette cannot
+     keep apart, so each gains the outline that carries the same information. */
+  .frameHead,
+  .sheetPhoto {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+  .frameEye,
+  .frameEyeBound {
+    stroke: CanvasText;
+  }
+  .pill {
+    color: CanvasText;
+  }
+  .summaryLine,
+  .summaryFigures,
+  .ruleName,
+  .verdict,
+  .reading,
+  .detail,
+  .rulesSummary,
+  .rulesList,
+  .sizeUnit,
+  .sizeField {
+    color: CanvasText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .frameEdge,
+  .sheetPaper,
+  .sizeBox,
+  .rule,
+  .badge {
+    border-color: var(--ie-ink);
+  }
+  .summaryFigures,
+  .required,
+  .detail,
+  .rulesSummary,
+  .rulesList,
+  .sizeUnit,
+  .sizeField {
+    color: var(--ie-ink);
+  }
+}

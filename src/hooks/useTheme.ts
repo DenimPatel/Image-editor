@@ -1,42 +1,38 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react'
+import type { ThemePreference } from '../lib/appearance'
+import { useAppearance } from './useAppearance'
 
-type Theme = 'light' | 'dark';
+export type UseThemeResult = {
+  /** The theme actually in force, with `system` already resolved. */
+  theme: 'light' | 'dark'
+  isDark: boolean
+  toggle: () => void
+  /** What the user chose, including `system`. */
+  preference: ThemePreference
+}
 
-const STORAGE_KEY = 'image-editor-theme';
-
-export function useTheme() {
-  const [theme, setTheme] = useState<Theme | null>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored === 'light' || stored === 'dark' ? stored : null;
-    } catch {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === null) {
-      root.removeAttribute('data-theme');
-    } else {
-      root.setAttribute('data-theme', theme);
-    }
-  }, [theme]);
-
+/**
+ * The theme slice of `useAppearance`, kept as its own export so `ThemeToggle`
+ * reads `isDark`/`toggle` and does not have to learn the shape of the other
+ * five settings.
+ *
+ * This hook used to write `data-theme` itself, from its own copy of the
+ * `image-editor-theme` key, while the `<head>` bootstrap script wrote the same
+ * attribute from the same key. Two writers to one attribute is a race whose
+ * winner depends on mount order, and it is why the old model could not grow
+ * past one setting: five more would have meant five more races. It writes
+ * nothing now — `useAppearance` is the only writer of the attribute, and
+ * `appearanceAttributes` is the only place the name is spelled.
+ */
+export function useTheme(): UseThemeResult {
+  const { settings, set, resolvedTheme } = useAppearance()
   const toggle = useCallback(() => {
-    setTheme((prev) => {
-      const current = prev ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      const next: Theme = current === 'dark' ? 'light' : 'dark';
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // storage unavailable; theme still applies for this session
-      }
-      return next;
-    });
-  }, []);
-
-  const isDark = theme === 'dark' || (theme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  return { theme, isDark, toggle };
+    set({ theme: resolvedTheme === 'dark' ? 'light' : 'dark' })
+  }, [resolvedTheme, set])
+  return {
+    theme: resolvedTheme,
+    isDark: resolvedTheme === 'dark',
+    toggle,
+    preference: settings.theme,
+  }
 }

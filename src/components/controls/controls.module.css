@@ -10,13 +10,15 @@
   border: none;
   background: transparent;
   color: var(--ie-ink);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font: inherit;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition:
+    background calc(var(--dur-fast) * var(--motion-factor)) var(--ease-standard),
+    opacity calc(var(--dur-fast) * var(--motion-factor)) var(--ease-standard);
 }
 .iconButton:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ie-fill-hover);
 }
 .iconButton:disabled {
   opacity: 0.35;
@@ -26,8 +28,8 @@
   color: var(--ie-accent-bright);
 }
 .iconButton svg {
-  width: 22px;
-  height: 22px;
+  width: calc(22px * var(--icon-scale));
+  height: calc(22px * var(--icon-scale));
 }
 
 .dial {
@@ -42,7 +44,7 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 0 4px;
-  font-size: 13px;
+  font-size: calc(0.8125rem * var(--text-scale));
   color: var(--ie-ink-soft);
 }
 .dialValue {
@@ -50,12 +52,17 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+/* 44px is the *value range*, not a control size: the ruler is 40px of ticks to
+   a turn and the track is the whole width of a dial you drag a value out of.
+   Nothing here is scaled by `--density-factor`, and `scales.test.ts` pins that
+   so a future "let's make the editor roomier" pass cannot quietly shrink the
+   one control whose job is precise horizontal targeting. */
 .dialTrack {
   position: relative;
   height: 44px;
   overflow: hidden;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-sunken);
   cursor: ew-resize;
 }
 .dialRuler {
@@ -72,7 +79,7 @@
   background-position-y: center;
   background-size: 8px 60%;
   background-position-x: 50%;
-  transition: background-position 0.02s linear;
+  transition: background-position calc(var(--dur-instant) * var(--motion-factor)) var(--ease-linear);
 }
 .dialRulerMajor {
   position: absolute;
@@ -110,17 +117,34 @@
   border-radius: 50%;
   background: var(--ie-accent-bright);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity calc(var(--dur-fast) * var(--motion-factor)) var(--ease-standard);
 }
 .dialDetentActive {
   opacity: 1;
 }
 
+/* The control wraps, and it is capped by its container.
+   `.segmented` is `inline-flex`, so its used width is shrink-to-fit — which means
+   max-content, i.e. as wide as all four of its buttons put together. With nothing
+   to wrap against, `flex-wrap` alone changes nothing, so the `max-width` is the
+   load-bearing half: it makes the control's width the column's width, and then the
+   wrap has something to break at. Four buttons come to 367px in a 358px column at
+   `roomy` with `xlarge` text, and every control in that panel was reachable only
+   by scrolling the panel sideways.
+
+   This is the export panel's `.segments` wrapper, one level up. That panel needed
+   its own because its control has four columns of its own to think about; the
+   shared fix costs a panel whose control already fits nothing, because a
+   shrink-to-fit row that fits stays one line. The buttons keep the default
+   `flex: 0 1 auto`, so `min-width: auto` still refuses to shrink one below its
+   label: this makes a segmented control wrap, it never makes one truncate. */
 .segmented {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   padding: 2px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-hover);
   gap: 2px;
 }
 .segmentedButton {
@@ -128,40 +152,79 @@
   background: transparent;
   color: var(--ie-ink-soft);
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   font: inherit;
-  font-size: 13px;
-  min-height: 36px;
+  font-size: calc(0.8125rem * var(--text-scale));
+  min-height: calc(36px * var(--density-factor));
   cursor: pointer;
   white-space: nowrap;
 }
+/* The whole point of the `<span>`: `SegmentedControl` measures this element to
+   learn each option's natural width, and a button is a flex item that grows to
+   fill its row — reading a stretched box would return the row width and the
+   measurement would confirm whatever it decided first. `inline-block` gives it
+   its content width under any layout the control happens to be in. */
+.segmentedLabel {
+  display: inline-block;
+}
+/* One row of a control that could not fit on one row. `flex: 1 1 100%` is what
+   puts each row on its own line — the basis is the full content width, so row two
+   can never share a line with row one — and the buttons inside share whatever is
+   left, so a 3 + 2 split comes out as three equal buttons over two equal ones
+   rather than as a 323px `Percent` bar under four narrower siblings. */
+.segmentedRow {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 2px;
+  min-width: 0;
+}
+.segmentedRow > button {
+  flex: 1 1 auto;
+}
 .segmentedButtonActive {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--ie-fill-selected);
   color: var(--ie-ink);
   font-weight: 600;
 }
 
+/* The containing block is `.canvasRegion`, which is `position: relative` and is
+   itself the box *between* the two bars. So `inset: 0` here is the canvas, not
+   the viewport — which is the same statement the ≥ 900px rule below makes about
+   the sheet, and it is what keeps a panel from standing between the reader and
+   the chrome on a phone. While this was `position: fixed` the scrim covered the
+   top bar and the tool tab bar along with the canvas, so with a tool open
+   `Done`, `More options` and all thirteen tool tabs were behind 45% black and
+   unclickable — the tool you wanted to switch to was unreachable from the tool
+   you were in. */
 .sheetBackdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 40;
+  z-index: calc(var(--z-sheet) - 1);
 }
+/* `position: absolute` for the same reason, and not a height token: the box this
+   resolves against *is* the space between the top bar and the tab bar, so
+   `bottom: 0` stops the sheet exactly at the tab bar's top edge at any viewport
+   height and at any `--density-factor` / `--text-scale` / `--icon-scale`. A
+   `--ie-tabbar-height` token would be a second copy of a number that two other
+   rules already own, and it would be wrong the first time a bar grew.
+   `max-height: 100%` rather than a viewport fraction for the same reason: the
+   tallest detent cannot grow past the row it lives in and start scrolling the
+   canvas region sideways. */
 .sheet {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 41;
+  z-index: var(--z-sheet);
   background: var(--ie-chrome-solid);
   color: var(--ie-ink);
   border-radius: var(--ie-sheet-radius) var(--ie-sheet-radius) 0 0;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  max-height: 92vh;
-  transition: height 0.24s cubic-bezier(0.32, 0.72, 0, 1);
-  touch-action: none;
+  max-height: 100%;
+  transition: height calc(var(--dur-sheet) * var(--motion-factor)) var(--ease-decelerate);
 }
 .sheetGrabber {
   width: 100%;
@@ -171,6 +234,11 @@
   justify-content: center;
   cursor: grab;
   flex-shrink: 0;
+  /* Drag-to-detent lives here and nowhere else. `touch-action` is resolved by
+     intersecting the hit-tested element with every ancestor, so putting
+     `none` on the sheet container silently disabled panning for `.sheetBody`
+     too and no panel taller than the detent could be scrolled by touch. */
+  touch-action: none;
 }
 .sheetGrabber::after {
   content: '';
@@ -181,27 +249,98 @@
 }
 .sheetBody {
   overflow-y: auto;
+  /* `overscroll-behavior: contain` stops a touch drag that hits the end of the
+     body from chaining to the page behind the sheet. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 4px 16px calc(16px + var(--ie-safe-bottom));
 }
+.sheetTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* Pinned to the top of the scrolling body. The Export panel is ~1000 px of
+     content in a 58vh detent, and opening a sheet focuses its first control,
+     which scrolls the body — so on a phone the title and the Close button used
+     to disappear the moment the panel opened. A touch user has no Escape key,
+     which left the backdrop as the only way out and the heading as a name the
+     panel no longer carried. */
+  position: sticky;
+  top: 0;
+  /* Not on the `--z-*` ladder, deliberately: this is the title row's position
+     *within* the sheet's own stacking context, not a layer of the app. Putting
+     it on the ladder would invite someone to raise it far enough to punch
+     through the sheet, which is the opposite of what "sticky header" means. */
+  z-index: 1;
+  background: var(--ie-chrome-solid);
+  padding-top: 4px;
+}
 .sheetTitle {
-  font-size: 15px;
+  font-size: var(--font-xs);
   font-weight: 700;
   margin: 2px 0 10px;
 }
+.sheetClose {
+  flex-shrink: 0;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ie-ink-soft);
+  font: inherit;
+  font-size: var(--font-2xs);
+  min-width: calc(32px * var(--density-factor));
+  min-height: calc(32px * var(--density-factor));
+  margin: 2px 0 10px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.sheetClose:hover {
+  color: var(--ie-ink);
+  background: var(--ie-fill-hover);
+}
 
 @media (min-width: 900px) {
+  /* The desktop inspector is a column beside the canvas, not a sheet over the
+     app. The containing block is `.canvasRegion` — the box *between* the two
+     bars — so `top: 0` plus `bottom: 0` stretches it across exactly that box.
+     While this was `position: fixed` those same two declarations resolved
+     against the viewport, which is what put the panel over the top bar's
+     right-hand buttons (More options, Photo details, Appearance) and over the
+     tool tab bar, clipping Export to "Ex". `height: auto` with both insets at
+     0 is the stretch; the component therefore stops writing the inline detent
+     height here too, since an inline style outranks any rule in this file. */
   .sheet {
+    position: absolute;
     left: auto;
     right: 0;
     top: 0;
     bottom: 0;
-    width: 360px;
+    width: var(--ie-inspector-width);
+    height: auto;
     border-radius: 0;
     max-height: none;
+    border: 0;
+    border-left: 1px solid var(--ie-hairline);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.45);
+    transition: none;
+    /* The detent drag is a phone affordance; off it, the panel is an ordinary
+       scroll container and `none` would eat a wheel gesture over a trackpad or
+       a touch screen. */
+    touch-action: auto;
   }
+  /* Everything else about the column is the sheet's own: `.sheetBody`'s padding
+     carries `--density-factor`, `.sheetTitle` carries `--text-scale`, and the
+     group's transitions carry `--motion-factor`, so the desktop inspector moves
+     with the appearance settings exactly as the mobile one does. Only the
+     *width* is deliberately outside that — see `--ie-inspector-width` in
+     `editor.module.css`. */
   .sheetBackdrop {
     display: none;
   }
+  /* The grabber only exists to drag between detents, and the desktop
+     inspector has exactly one. The close button in `.sheetTitleRow` is its
+     keyboard- and pointer-reachable replacement. */
   .sheetGrabber {
     display: none;
   }
@@ -217,31 +356,51 @@
   border: none;
   color: var(--ie-ink-soft);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--font-2xs);
   cursor: pointer;
   padding: 4px 2px;
 }
 .ringButton {
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: calc(42px * var(--density-factor));
+  height: calc(42px * var(--density-factor));
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ie-fill-rest);
   color: var(--ie-ink);
+}
+/* `ParameterRing` writes `width="42" height="42"` on the progress ring, so the
+   button could be scaled by density and the ring inside it would stay at 42px
+   in the middle of a 47px circle. Filling the button makes the ring track the
+   control it belongs to; the `viewBox` does the rest, so the stroke width and
+   the dash geometry are unchanged — they are in user units. */
+.ringButton svg {
+  width: 100%;
+  height: 100%;
 }
 .ringActive .ringButton {
   background: rgba(56, 178, 140, 0.22);
+  background: color-mix(in srgb, var(--ie-accent-bright) 22%, transparent);
   color: var(--ie-accent-bright);
 }
 .ringValue {
   font-variant-numeric: tabular-nums;
   color: var(--ie-ink);
 }
+/* Fifteen rings — fifteen of which the last, "Contrast", was cut to "Con" at the
+   column edge with nothing to say so: the scrollbar is hidden, so a row that
+   scrolls sideways in a 360 px column does not read as scrollable, it reads as
+   truncated. The row wraps onto as many lines as the column needs and keeps
+   `overflow-x: auto` only as the seatbelt for the one thing wrapping cannot fix
+   — a single ring wider than the whole column — so nothing is ever clipped
+   unreachably. `align-content: flex-start` keeps the extra lines at their own
+   height instead of being stretched by a row that has spare height to spare. */
 .parameterRow {
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 10px;
   overflow-x: auto;
   padding: 8px 4px 12px;
@@ -251,8 +410,14 @@
   display: none;
 }
 
+/* The same decision as `.parameterRow`, and for the same reason: a chip row that
+   scrolls sideways in the inspector column shows a chip half under the edge, and
+   a half chip with a fade over it reads as a truncated word rather than as more
+   to scroll to. */
 .chipRow {
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 8px;
   overflow-x: auto;
   padding: 6px 2px 10px;
@@ -261,23 +426,38 @@
 .chipRow::-webkit-scrollbar {
   display: none;
 }
+/* The fade is the last resort, for the row that wraps and still overflows because
+   one chip is wider than the column — the only case wrapping cannot fix. It is a
+   mask rather than a painted gradient so it works in both themes without
+   hard-coding the panel colour, and it is only applied while there is genuinely
+   more to scroll to. A wrapped row never reaches it, so a fade here cannot be
+   what makes a label unreadable. */
+.chipRowMore {
+  mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+}
+@media (forced-colors: active) {
+  .chipRowMore {
+    mask-image: none;
+    border-right: 2px solid CanvasText;
+  }
+}
 .chip {
   flex-shrink: 0;
   border: 1px solid var(--ie-hairline);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ie-fill-rest);
   color: var(--ie-ink);
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font: inherit;
-  font-size: 13px;
-  min-height: 36px;
+  font-size: calc(0.8125rem * var(--text-scale));
+  min-height: calc(36px * var(--density-factor));
   cursor: pointer;
   white-space: nowrap;
 }
 .chipActive {
   background: var(--ie-accent);
   border-color: var(--ie-accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -286,17 +466,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 44px;
-  font-size: 14px;
+  min-height: var(--ie-tap);
+  font-size: calc(0.875rem * var(--text-scale));
 }
 .fieldLabel {
   color: var(--ie-ink-soft);
 }
+/* The native colour swatch. Its own box is its hit area, and at
+   `44 x calc(32px * var(--density-factor))` that was 12px short of `--ie-tap`.
+   `ColorField` — the one caller — wraps it in a `min-height: var(--ie-tap)`
+   `<label>`, and a label forwards an activation press to its control, so that use
+   was already fine. The Export panel's colour input has no label at all, only an
+   `aria-label`, and a bare native swatch is a 32px target. The width was already
+   `--ie-tap`; the height is the same token now, so the box meets the target
+   whether or not a caller remembers to label it. */
 .colorInput {
-  width: 44px;
-  height: 32px;
+  width: var(--ie-tap);
+  height: var(--ie-tap);
   border: 1px solid var(--ie-hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   background: transparent;
   padding: 0;
 }
@@ -307,14 +495,14 @@
   gap: 6px;
 }
 .stepper button {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: calc(32px * var(--density-factor));
+  height: calc(32px * var(--density-factor));
+  border-radius: var(--radius-xs);
   border: 1px solid var(--ie-hairline);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ie-fill-rest);
   color: var(--ie-ink);
   cursor: pointer;
-  font-size: 18px;
+  font-size: calc(1.125rem * var(--text-scale));
   line-height: 1;
 }
 .stepperValue {
@@ -323,48 +511,99 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The top of the canvas, not the bottom of the viewport.
+   The bottom of this app is chrome: the tool tab bar occupies the last ~65 px of
+   every phone screen, and a tool panel occupies everything above it. A toast
+   anchored there landed on the passport panel's own chips — the control the
+   error was *about* — and, once the sheet was stopped from covering the tab bar,
+   on the thirteen tool tabs instead. Neither is reachable while shown, and the
+   only band left that is neither chrome nor panel is the strip under the top
+   bar, so the stack goes there. `--ie-topbar-height` is `.topBar`'s own
+   `min-height` (editor.module.css), so this stays exact at every density and
+   with a notch; `e2e/journey.responsive.spec.ts` measures the two boxes against
+   each other in a real browser, so a bar that outgrows its token fails loudly
+   here rather than quietly going back under the panel. */
 .toastStack {
   position: fixed;
   left: 50%;
-  bottom: calc(24px + var(--ie-safe-bottom));
+  top: calc(var(--ie-topbar-height) + var(--space-3));
+  bottom: auto;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: center;
   pointer-events: none;
 }
+
+/*
+ * Which side of that strip the toast sits on is a breakpoint decision, and both
+ * halves are forced by what else owns the strip:
+ *
+ *   · ≥ 900px the inspector column owns the right 360px, so a centred toast lands
+ *     on the canvas — the one surface in the app with nothing to click on it.
+ *   · < 900px the panel owns the full width, and the canvas region's own top row
+ *     has the Compare toggle pinned to its *left*. Centred, a toast's left edge
+ *     landed 27px inside that badge. So below the same breakpoint the stack
+ *     hugs the right, which is the one corner of the strip nothing else claims.
+ *
+ * Moving the toast is not a way of making it not matter: the point is that a
+ * message a reader has to act on must not be printed across a control they have
+ * to act with.
+ */
+@media (max-width: 899px) {
+  .toastStack {
+    left: auto;
+    right: var(--space-3);
+    transform: none;
+    align-items: flex-end;
+  }
+}
 .toast {
   background: rgba(28, 28, 30, 0.95);
-  color: #fff;
+  color: var(--ie-on-scrim);
   border: 1px solid var(--ie-hairline);
   padding: 10px 16px;
-  border-radius: 999px;
-  font-size: 13px;
+  border-radius: var(--radius-full);
+  font-size: calc(0.8125rem * var(--text-scale));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .toastError {
-  border-color: #d1394a;
+  border-color: var(--danger);
 }
 
+/* The range input's own box is its hit area, and it is not big.
+   Measured in a real browser at every width, density and text scale, the
+   `Quality` slider was 248x16 — the UA's own 16px for a range input, because
+   nothing here declared a height. Its `<label>` is `min-height: var(--ie-tap)`
+   and is a flex row, so the extra 28px above and below is decoration: a press
+   anywhere in that band did nothing. A drag you have to find is a drag you give
+   up on, and this is the only control in the editor whose value is set by
+   dragging a *track* rather than by pressing a thumb-sized button.
+   `min-height` rather than `height` so the forced-colors block below keeps
+   owning the input's appearance wholesale, and `var(--ie-tap)` so the hit area is
+   the project's stated target at every density instead of a third number that
+   only the default density gets. The track stays where the UA draws it, centred
+   in the taller box. */
 .sliderInput {
   width: 100%;
+  min-height: var(--ie-tap);
   accent-color: var(--ie-accent-bright);
 }
 .textInput,
 .select {
   width: 100%;
-  min-height: 40px;
-  border-radius: 10px;
+  min-height: calc(40px * var(--density-factor));
+  border-radius: var(--radius-sm);
   border: 1px solid var(--ie-hairline);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--ie-fill-rest);
   color: var(--ie-ink);
   padding: 8px 10px;
   font: inherit;
 }
 .sectionTitle {
-  font-size: 12px;
+  font-size: var(--font-2xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ie-ink-soft);
@@ -372,7 +611,7 @@
 }
 .placeholder {
   color: var(--ie-ink-soft);
-  font-size: 14px;
+  font-size: calc(0.875rem * var(--text-scale));
   padding: 20px 8px;
   text-align: center;
 }
@@ -380,12 +619,223 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 44px;
-  font-size: 14px;
+  min-height: var(--ie-tap);
+  font-size: calc(0.875rem * var(--text-scale));
   gap: 12px;
 }
 .toggle input {
   width: 44px;
   height: 26px;
   accent-color: var(--ie-accent);
+}
+
+/* ---------- Forced colours / increased contrast ---------- */
+
+@media (forced-colors: active) {
+  .sheet,
+  .toast,
+  .segmented,
+  .ringButton,
+  .chip,
+  .stepper button,
+  .textInput,
+  .select {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  .segmentedButton,
+  .ring,
+  .ringValue,
+  .fieldLabel,
+  .sectionTitle,
+  .placeholder,
+  .dialHeader,
+  .dialValue {
+    color: CanvasText;
+  }
+  .segmentedButtonActive,
+  .ringActive .ringButton,
+  .iconButton:hover:not(:disabled),
+  .sheetClose:hover {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .chipActive,
+  .iconButtonActive {
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .sheetClose,
+  .sheetGrabber::after,
+  .dialDetent {
+    background-color: CanvasText;
+    border-color: CanvasText;
+  }
+  /* The tick rulers are `repeating-linear-gradient`s, and there is no way to
+     keep them here. The block above reached them through the `background`
+     shorthand, which also resets `background-image` to `none`, so under forced
+     colors every dial rendered as one solid block of `CanvasText` with a
+     `CanvasText` needle painted on top of it: a value you could drag and could
+     not see. Restating the gradient is not the fix either — forced-colors mode
+     drops `background-image` on every element regardless of how it was written,
+     so the ticks are gone by design. They are decoration, and the value is
+     printed above the dial and carried in `aria-valuetext`, so what has to
+     survive is the pair that locates it: a `Canvas` track with a `CanvasText`
+     edge, and a `Highlight` needle. That is the whole visual contract here. */
+  .dialRuler,
+  .dialRulerMajor {
+    background: none;
+  }
+  .dialNeedle {
+    background-color: Highlight;
+    forced-color-adjust: none;
+  }
+  .dialTrack,
+  .ringButton svg circle:first-child {
+    border: 1px solid CanvasText;
+    background: Canvas;
+  }
+  .toastError {
+    border: 2px solid CanvasText;
+  }
+  /* A range input hands its whole appearance to the UA, and under forced colors
+     Chromium painted ours as one featureless block the height of the field: no
+     track, no fill, no thumb, so a value you can set but cannot see. The
+     geometry is ours and the *colours* are the system's, so the input keeps
+     `forced-color-adjust: none` and is painted out of the system palette
+     explicitly — Canvas for the track, Highlight for the thumb, both bordered
+     in CanvasText. The same has to happen to the checkbox, which shares the
+     accent treatment. */
+  .sliderInput,
+  .toggle input {
+    forced-color-adjust: none;
+    background: Canvas;
+    border: 1px solid CanvasText;
+    border-radius: var(--radius-xs);
+    accent-color: CanvasText;
+  }
+  /* `height: 28px` used to be shared with the range input above, where it was
+     serving the checkbox's 13px UA default. The range input now asks for
+     `--ie-tap` in the base rule, and a `min-height` outranks a `height`, so
+     sharing it would have made the declaration inert for one of the two and
+     misleading to whoever read it next. */
+  .toggle input {
+    height: 28px;
+  }
+  .sliderInput::-webkit-slider-runnable-track {
+    background: Canvas;
+    border-radius: 7px;
+    height: 26px;
+  }
+  .sliderInput::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 24px;
+    margin-top: 1px;
+    border: 1px solid CanvasText;
+    border-radius: 3px;
+    background: Highlight;
+  }
+  .sliderInput::-moz-range-track {
+    background: Canvas;
+    border-radius: 7px;
+    height: 26px;
+  }
+  .sliderInput::-moz-range-thumb {
+    width: 12px;
+    height: 24px;
+    border: 1px solid CanvasText;
+    border-radius: 3px;
+    background: Highlight;
+  }
+  :where(button, [tabindex]):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .sheet {
+    border-left: 1px solid var(--ie-hairline);
+  }
+  .segmentedButton,
+  .ring,
+  .ringValue,
+  .fieldLabel,
+  .sectionTitle,
+  .placeholder,
+  .dialHeader,
+  .dialValue {
+    color: var(--ie-ink);
+  }
+  .chipActive,
+  .ringActive .ringButton,
+  .segmentedButtonActive {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/**
+ * Everything translucent in this file, collapsed. The eight `--ie-fill-*`
+ * tokens and `--ie-hairline` are already flattened in `tokens.css` and need
+ * nothing here; what is left is the set that was never tokenised because it is
+ * not a fill — the sheet's backdrop, the toast, the grabber bar, the dial's
+ * needle halo, the active ring's tint, and the two ruler gradients.
+ *
+ * Each value is the opaque colour the translucent one already resolved to
+ * against the editor's `#1c1c1e`, not a new choice. The one that reads as a
+ * *change* rather than a flattening is `.sheetBackdrop`: 45% black over a
+ * photo is how the sheet says "this is behind you", and opaque black says it
+ * louder. That is what the setting asks for.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .sheetBackdrop {
+    background: #000;
+  }
+  .toast {
+    background: #1c1c1e;
+  }
+  /* 30% white on the chrome is `#606063`. The grabber is a 5px bar, so at full
+     alpha it is the only piece of this file where "collapse the alpha" is
+     visible as more than a flattening — and a grabber you cannot see is not a
+     drag handle. */
+  .sheetGrabber::after {
+    background: #606063;
+  }
+  .dialNeedle {
+    box-shadow: none;
+  }
+  .ringActive .ringButton {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+  /* The rulers are gradients, so there is no token to flatten; the ticks are
+     drawn at full alpha over the track instead. 28% white is `#5c5c5e` and
+     55% is `#99999b` on the chrome. */
+  .dialRuler {
+    background-image: repeating-linear-gradient(
+      to right,
+      #5c5c5e 0,
+      #5c5c5e 1px,
+      transparent 1px,
+      transparent 8px
+    );
+  }
+  .dialRulerMajor {
+    background-image: repeating-linear-gradient(
+      to right,
+      #99999b 0,
+      #99999b 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  }
 }

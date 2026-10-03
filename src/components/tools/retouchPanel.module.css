@@ -1,0 +1,160 @@
+/**
+ * The Retouch panel's own rules.
+ *
+ * Everything here exists for one figure: the placement pad. The rest of the
+ * panel is `tools.module.css`, because a second slider or a second button would
+ * be a second vocabulary — the section titles, hints, list rows and text buttons
+ * are the ones every other panel already draws with.
+ *
+ * The pad is a `<button>` wrapping a `<canvas>`, and that is the whole trick: a
+ * figure you can only click is a figure a keyboard cannot reach, and the two
+ * position sliders below it are the accessible route to the same value. Making
+ * the pad itself the control means one thing places a spot — Enter on it, or a
+ * click on it — instead of a click meaning something different from a keypress.
+ *
+ * The pad shows the crop at the shape it exports at, so a circle drawn at
+ * `radius × 100%` of the pad's width is a circle in the photo and not an ellipse
+ * in one axis: `retouchHalo` compares against distance in frame-width units, and
+ * the pad is the frame.
+ */
+
+/* ---------- The placement pad ---------- */
+
+.pad {
+  display: block;
+  position: relative;
+  /* The pad is as wide as the sheet allows and as tall as `PAD_MAX_HEIGHT`
+     allows, whichever runs out first — and the width cap is written inline as
+     that height times the crop's own aspect, so `max-height` can never crop the
+     figure. At 100% wide a 3:4 portrait crop is 500 px tall in a 380 px
+     inspector, which pushed the position sliders and the Add button below the
+     fold: the pad was the most visible part of the panel and the least
+     reachable. */
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--ie-fill-quiet);
+  overflow: hidden;
+  cursor: crosshair;
+  /* The pad is a tap target, not a scroll surface, so a drag across it is a
+     drag and not the sheet scrolling under a finger. A pan that starts here
+     still scrolls: only the pad's own gesture is claimed. */
+  touch-action: manipulation;
+}
+.pad:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.padCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The pad's aspect-ratio is the crop's, written inline from the document, so
+     the proxy and the pad agree and the drawing needs no `object-fit`. */
+}
+
+/* ---------- Markers, drawn at the radius they will really cover ---------- */
+
+/* Heal: a filled disc, because a heal spot blends the neighbourhood over the
+   blemish and its extent is the disc. Red-eye: a ring, because that pass
+   desaturates inside a disc but the eye it lands on is a target to aim at, and
+   a ring is the shape the word already has. Both are the same disc in the
+   shader; the two shapes are only how the panel tells them apart on screen. */
+.spot {
+  position: absolute;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.spotHeal {
+  background: var(--ie-accent-bright);
+  opacity: 0.28;
+  border: 1px solid var(--ie-accent-bright);
+}
+.spotRedEye {
+  border: 2px dashed var(--ie-accent-bright);
+}
+
+/* The crosshair: where the next spot lands, which is not the same thing as a
+   spot that has been placed. A ring with a gap rather than a filled dot, so it
+   cannot be read as a heal disc at a glance. */
+.crosshair {
+  position: absolute;
+  width: calc(18px * var(--icon-scale));
+  height: calc(18px * var(--icon-scale));
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ie-ink);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+/* ---------- The two position sliders ---------- */
+
+/* Side by side, because "across" and "up" are one position and reading them off
+   a phone-width sheet takes two screens' worth of scrolling stacked. */
+.positions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-top: 10px;
+}
+/* The zero-minimum trap, spelled out: a grid item defaults to `min-width: auto`,
+   which resolves to its min-content width, and a range input's min-content is
+   its intrinsic width from the `size` attribute. `min-width: 0` on the item
+   lets `1fr` divide the column. */
+.positions > * {
+  min-width: 0;
+}
+
+/* ---------- The placed list ---------- */
+
+.spotRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: var(--font-2xs);
+  color: var(--ie-ink);
+  line-height: 1.4;
+}
+/* The figures are what makes a row identify a spot on the pad, and two columns
+   of numbers are only comparable with tabular figures. */
+.spotFigures {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Forced colours / increased contrast ---------- */
+
+/* Both markers are painted rather than outlined, and the system palette cannot
+   keep a 28%-opacity accent apart from the photo underneath it, so in forced
+   colours they become outlines the palette does have to keep visible. */
+@media (forced-colors: active) {
+  .pad {
+    border: 1px solid CanvasText;
+  }
+  .spotHeal,
+  .spotRedEye,
+  .crosshair {
+    background: Canvas;
+    border: 2px solid CanvasText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .pad,
+  .spotRow {
+    border-color: var(--ie-ink);
+  }
+  .spotHeal {
+    opacity: 0.45;
+  }
+}

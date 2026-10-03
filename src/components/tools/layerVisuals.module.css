@@ -1,0 +1,238 @@
+/**
+ * The artwork and the explanations the layer panels were missing.
+ *
+ * Every value here is read from a token. `--ie-fill-*` is the semantic ladder
+ * for the editor's surfaces, `--radius-*` / `--space-*` are the scales, and the
+ * four blocks at the foot of `tokens.css` remap all of them for High Contrast,
+ * increased contrast and reduced transparency — which a literal here would be
+ * invisible to, and a control that cannot be repainted is a control that a
+ * reader who needs the OS help cannot see.
+ *
+ * These classes deliberately *add* properties rather than restate them. The
+ * sticker tiles and the shape chips are also `.lookItem` / `.textButton` from
+ * `tools.module.css`, and that file and this one are both single-class
+ * selectors, so a property set in both would be decided by which one the bundler
+ * happened to emit last. `display`, `text-align`, `gap` and the sizes are not
+ * set by those classes, so they can be added here without a fight.
+ */
+
+/*
+ * The row wraps; it does not scroll.
+ *
+ * This is the same decision `.row` in `ratioChips.module.css`, `.chipRow` and
+ * `.parameterRow` in `controls.module.css` already record, and it was missed
+ * here. Measured in a real browser: the Frame panel's "Frame styles" row is 634px
+ * of chips in a 327px column at 1280 — **307px over** — and 710px in the same
+ * 327px column at `roomy` + `xlarge`, **383px over**. At 360 it is 306px over
+ * and at 430 it is 236px over, so it is every width, not a phone problem.
+ *
+ * The cost of not wrapping is the same cost those three rows already paid and
+ * fixed: the row scrolls, the scrollbar is hidden, and the 34px fade below sits
+ * over the trailing chip — which is *narrower than the labels it covers*, so the
+ * affordance saying "there is more this way" is also what turns "Rounded" into
+ * "Round" and "Shadow card" into "Shadow c". A fade can only honestly say
+ * "there is more" if it does not also destroy the label beside it.
+ *
+ * `overflow-x: auto` and the `[data-more]` fade both stay, as the seatbelt for
+ * the one thing wrapping cannot fix: a single chip wider than the whole column.
+ * So the fade is a live last resort rather than a dead affordance, and nothing
+ * can end up clipped somewhere it cannot be reached from. `align-content:
+ * flex-start` keeps the extra lines at their own height rather than being
+ * stretched by spare height in the row.
+ */
+.glyphRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) 2px var(--space-3);
+  scrollbar-width: none;
+}
+.glyphRow::-webkit-scrollbar {
+  display: none;
+}
+/*
+ * The last resort: a wrapped row only reaches this while a chip is genuinely
+ * too wide for the column on its own. A mask rather than a painted gradient so
+ * it works in both themes without hard-coding the panel colour, and only while
+ * there is more to scroll to.
+ */
+.glyphRow[data-more='true'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+}
+@media (forced-colors: active) {
+  .glyphRow[data-more='true'] {
+    mask-image: none;
+    border-right: 2px solid CanvasText;
+  }
+}
+
+/*
+ * A chip is a label with a drawing next to it, so it is a row and not a column:
+ * at 390px a stacked chip is 44px tall and the blend row is nine of them, which
+ * pushes the frame's own controls off the panel entirely.
+ */
+.glyphChip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px solid var(--ie-hairline);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-3);
+  min-height: calc(40px * var(--density-factor));
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.glyphChipActive {
+  background: var(--ie-accent);
+  border-color: var(--ie-accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.glyphChipArt {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* A sticker tile: the artwork is the point, so it is 28px of a 52px button. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+.tileArt {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* A `.textButton` that carries a shape drawing. */
+.chipWithArt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.chipArt {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/*
+ * A layer row's name is a button and nothing else, and it has to look like one.
+ * It carried `styles.grow` — which is `flex: 1; min-width: 0` and sets no
+ * appearance of its own — so the browser's default button painting reached the
+ * screen: `rgb(239, 239, 239)` with black text, a light box on a `#1c1c1e`
+ * panel, in the middle of a row of dark controls. It read as a disabled form
+ * field rather than as the thing you click to select the layer. Left-aligned and
+ * borderless, because the row's own border is the affordance and `.listItemActive`
+ * is the selection.
+ *
+ * The flex line lives here too, and deliberately not on `.grow`: `flex: 1 1 0`
+ * with a zero basis makes this the only item in the row that can shrink, so on
+ * the selected row — eight controls beside it — it collapsed to a two-word
+ * column and "Watermark · © Your Company Name" broke over three lines. Sizing
+ * it from its own content means the row keeps the name whole and puts the
+ * surplus somewhere else instead. An unselected row is four children — eye,
+ * name, Move up, Move down — and fits them on one line; the selected row is
+ * nine and wraps.
+ */
+.rowName {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: var(--font-2xs);
+  line-height: 1.4;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+.rowName:hover {
+  color: var(--ie-accent-bright);
+}
+
+/*
+ * A layer row is a flex line that gains five `IconButton`s when it is selected:
+ * nine children including the name, in a 320 px panel. Without wrapping, the name
+ * button — which is `flex: 1 1 0; min-width: 0` and so the only thing in the row
+ * that can shrink — collapses to a two-word column and "Watermark · © Your
+ * Company Name" breaks across three lines. Wrapping puts the surplus on a line of
+ * its own, and the selected row is the only row that has a surplus. The fill is
+ * greedy, so the break is not a fixed place: measured at 327 px the first line
+ * holds the eye, the name, Rename and Duplicate, and Bring to front, Send to
+ * back, Delete, Move up and Move down wrap. What `wrap` buys is that the *name*
+ * is never the thing that is squeezed, which is the whole argument — not that the
+ * actions are kept together.
+ *
+ * Both counts here are checked against the rendered row by
+ * `layerVisuals.test.ts`, which reads this comment and the DOM and fails if they
+ * stop agreeing. They went stale once already, when Delete moved in with the rest
+ * of the selected row's actions and the numbers below were left at four and
+ * eight; a comment that nobody can be wrong about is not documentation, it is
+ * decoration, and this file is the only place the row's shape is argued for.
+ */
+.listItem {
+  flex-wrap: wrap;
+}
+
+/*
+ * The empty state. Same ink and measure as `tools.module.css`'s `.hint`, which
+ * it replaces on four panels — a panel that has nothing in it should not also be
+ * the one panel in the set that says nothing.
+ */
+.emptyState {
+  margin: var(--space-2) 0 0;
+}
+.emptyStateCopy {
+  margin: 0;
+  font-size: var(--font-2xs);
+  line-height: 1.5;
+  color: var(--ie-ink-soft);
+}
+
+/*
+ * The same two rules `tools.module.css` carries for the surfaces it owns, for the
+ * same reason: both name a brand colour, which forced colors then replaces with
+ * a system one, and none of the resulting pairings were ever checked.
+ */
+@media (forced-colors: active) {
+  .glyphChip {
+    background: ButtonFace;
+    color: ButtonText;
+    border-color: ButtonText;
+  }
+  .glyphChipActive {
+    background: Highlight;
+    color: HighlightText;
+    border-color: HighlightText;
+  }
+  .emptyStateCopy {
+    color: CanvasText;
+  }
+  .rowName {
+    color: ButtonText;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glyphChip {
+    background: var(--ie-fill-rest);
+  }
+  .glyphChipActive {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+}

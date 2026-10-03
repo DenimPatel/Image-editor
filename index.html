@@ -6,42 +6,205 @@
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` is what makes `env(safe-area-inset-*)` non-zero.
+         Without it Safari insets the layout viewport to the safe area itself,
+         so every `--ie-safe-*` token resolves to 0px and the top bar sits under
+         the notch on every iPhone and iPad. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Interactive Image Editor</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
+    <meta
+      name="description"
+      content="Crop, adjust, filter, redact and export images entirely in your browser. 100% client-side — your images are never uploaded."
     />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fafaf8" media="(prefers-color-scheme: light)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Image Editor" />
+    <!-- Relative, not `/Image-editor/...`: Vite rewrites a root-relative href
+         in this file by prepending `base`, which would double the prefix.
+         Relative URLs are resolved against `base` exactly once. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Interactive Image Editor" />
+    <meta
+      property="og:description"
+      content="Crop, adjust, filter, redact and export images entirely in your browser. 100% client-side — your images are never uploaded."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- No `<link>` to fonts.googleapis.com. The Hub and the import screen used
+         to fetch Manrope and Inter from Google, which contradicted the "100%
+         client-side" and "no uploads, no accounts" claims in the meta tags
+         above — a webfont request discloses the visitor's IP and user agent to
+         a third party on every page view — and it meant the display face was
+         the one thing this app could not show offline, since the service
+         worker caches same-origin GETs only. The same faces are declared from
+         `public/fonts/` in `src/styles/base.css`; `fonts.ts` already loaded
+         those files for the text layers. -->
 
     <script>
-      // Apply any stored theme preference before first paint to avoid a
-      // flash of the wrong theme; falls back silently if storage is blocked.
-      (function () {
+      /* prettier-ignore */
+      // GENERATED from src/lib/appearance.ts by appearanceBootstrapScript().
+      // Apply the stored appearance before first paint to avoid a flash of the
+      // wrong theme/density/accent; every step is wrapped because Safari
+      // private mode throws a SecurityError on any localStorage access and an
+      // uncaught throw here would abort before the module below ever runs.
+      ;(function () {
         try {
-          var t = localStorage.getItem('image-editor-theme');
-          if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+          var store = {
+            storage: 'image-editor-appearance',
+            legacy: 'image-editor-theme',
+            event: 'ie:appearance',
+          }
+          var lists = {
+            theme: [
+              'light',
+              'dark',
+              'system',
+            ],
+            density: [
+              'compact',
+              'default',
+              'roomy',
+            ],
+            textScale: [
+              'small',
+              'default',
+              'large',
+              'xlarge',
+            ],
+            motion: [
+              'full',
+              'reduced',
+            ],
+            iconScale: [
+              'small',
+              'default',
+              'large',
+            ],
+            accent: [
+              'green',
+              'blue',
+              'violet',
+              'amber',
+            ],
+          }
+          var attrs = {
+            theme: 'data-theme',
+            density: 'data-density',
+            textScale: 'data-text',
+            motion: 'data-motion',
+            iconScale: 'data-icons',
+            accent: 'data-accent',
+          }
+          var defaults = {
+            theme: 'system',
+            density: 'default',
+            textScale: 'default',
+            motion: 'full',
+            iconScale: 'default',
+            accent: 'green',
+          }
+          var root = document.documentElement
+          var raw = null
+          try {
+            raw = localStorage.getItem(store.storage)
+          } catch (e) {}
+          var settings = null
+          if (raw !== null) {
+            try {
+              var parsed = JSON.parse(raw)
+              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) settings = parsed
+            } catch (e) {}
+          } else {
+            // No appearance payload yet: fold the pre-appearance theme key
+            // forward so a user who chose dark under the old model does not
+            // silently get the OS preference back on upgrade.
+            var legacy = null
+            try {
+              legacy = localStorage.getItem(store.legacy)
+            } catch (e) {}
+            if (legacy === "light" || legacy === "dark") settings = { theme: legacy }
+          }
+          if (!settings) settings = {}
+          for (var key in settings) {
+            if (!Object.prototype.hasOwnProperty.call(settings, key)) continue
+            var attr = attrs[key]
+            var allowed = lists[key]
+            if (!attr || !allowed) continue
+            var value = settings[key]
+            if (allowed.indexOf(value) === -1) continue
+            if (value === defaults[key]) continue
+            root.setAttribute(attr, value)
+          }
         } catch (e) {}
-      })();
+      })()
     </script>
     <script>
       // GitHub Pages has no server-side rewrites, so a deep link/refresh to
       // e.g. /Image-editor/editor/crop 404s. public/404.html re-encodes the
       // path into a query string and redirects here; decode it back into the
       // real URL before the router mounts. See rafgraph/spa-github-pages.
-      (function () {
-        var redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
-        if (redirect && redirect !== location.href) {
-          history.replaceState(null, '', redirect);
-        }
-      })();
+      // Wrapped in try/catch like the theme script above: Safari private mode
+      // throws a SecurityError on any sessionStorage access, and an uncaught
+      // throw here would abort before the module below ever runs.
+      ;(function () {
+        try {
+          var redirect = sessionStorage.redirect
+          delete sessionStorage.redirect
+          if (redirect && redirect !== location.href) {
+            history.replaceState(null, '', redirect)
+          }
+        } catch (e) {}
+      })()
     </script>
   </head>
   <body>
+    <noscript>
+      <div
+        style="
+          padding: 24px;
+          font:
+            16px/1.6 system-ui,
+            sans-serif;
+        "
+      >
+        <h1 style="font-size: 20px">JavaScript is required</h1>
+        <p>
+          This image editor runs entirely in your browser — decoding, editing and encoding all
+          happen locally, so there is no server to fall back to. Enable JavaScript and reload the
+          page.
+        </p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Offline shell. Skipped on localhost and on any non-https origin: a
+      // service worker is only allowed over https, and registering one in dev
+      // caches the very files HMR is trying to replace. Both URLs are derived
+      // from the document so the worker's scope is the app's own directory
+      // rather than the whole origin, and the registration is swallowed
+      // because a failed one must not break the editor.
+      ;(function () {
+        try {
+          if (!('serviceWorker' in navigator)) return
+          if (location.protocol !== 'https:') return
+          if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return
+          var sw = new URL('sw.js', document.baseURI)
+          window.addEventListener('load', function () {
+            navigator.serviceWorker
+              .register(sw.href, { scope: new URL('./', sw).href })
+              .catch(function () {})
+          })
+        } catch (e) {}
+      })()
+    </script>
   </body>
 </html>

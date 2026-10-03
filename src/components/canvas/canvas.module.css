@@ -2,12 +2,25 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   background: var(--ie-canvas-bg);
   touch-action: none;
+}
+
+@media (min-width: 900px) {
+  /* Above the breakpoint `.canvasRegion` is a two-column grid — the canvas and
+     then the inspector — and this is the canvas. Saying so explicitly means a
+     sibling arriving later cannot push this into the inspector's track by
+     auto-placement, which is what "the panel covers the photo" looks like when
+     it happens. */
+  .canvas {
+    grid-column: 1;
+    grid-row: 1;
+  }
 }
 
 .canvas :global(.ie-canvas-el) {
@@ -29,7 +42,7 @@
 .gestureLayer {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-canvas);
   touch-action: none;
 }
 
@@ -37,28 +50,36 @@
   position: absolute;
   top: 14px;
   left: 14px;
-  z-index: 7;
+  z-index: calc(var(--z-canvas) + 5);
   display: flex;
   align-items: center;
   gap: 6px;
   background: rgba(0, 0, 0, 0.65);
-  color: #fff;
+  color: var(--ie-on-scrim);
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 7px 14px;
-  font-size: 12px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   backdrop-filter: blur(8px);
   cursor: pointer;
 }
+/* The one icon in the app that is measured against *text* rather than against
+   the control it sits in. The pill's label is `--font-2xs` (12px) and the glyph
+   was 14px, so the ratio that made it read as part of the label is 1.17:1 —
+   stated in `em`, it survives the text scale automatically, and the icon scale
+   rides on top. Sizing this one in `px` and the other five in `calc(px *
+   var(--icon-scale))` would have been the same mistake twice: a glyph that
+   grows to 17.5px beside 15px text reads as a different icon, not a bigger
+   one. */
 .compareToggle svg {
-  width: 14px;
-  height: 14px;
+  width: calc(1.1667em * var(--icon-scale));
+  height: calc(1.1667em * var(--icon-scale));
 }
 .compareToggle[aria-pressed='true'] {
   background: var(--ie-accent-bright, #38b28c);
-  color: #04140f;
+  color: var(--on-accent-bright);
 }
 
 .compareBadge {
@@ -66,12 +87,12 @@
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 6;
+  z-index: calc(var(--z-canvas) + 4);
   background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  border-radius: 999px;
+  color: var(--ie-on-scrim);
+  border-radius: var(--radius-full);
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   backdrop-filter: blur(8px);
@@ -80,7 +101,7 @@
 .overlay {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: calc(var(--z-canvas) + 1);
   pointer-events: none;
 }
 .imageFrame {
@@ -106,12 +127,47 @@
   background-size: 33.333% 33.333%;
   border: 1px solid rgba(255, 255, 255, 0.85);
 }
+
 .handle {
   position: absolute;
   width: 28px;
   height: 28px;
   pointer-events: auto;
   touch-action: none;
+}
+/* The grab area, which is larger than the mark and is what a finger has to hit.
+   This is the identical overhang the layer transform grips carry in
+   `transformHandles.module.css`: 8px on each side takes the 28px mark to the
+   44px `--ie-tap`, the token `tokens.css` reserves for controls. Without it the
+   eight crop handles were the *only* pointer targets on the canvas measured at
+   their own painted size — hit-testing the `nw` box in a real browser reached
+   14px from its centre in every direction and no further, i.e. exactly its own
+   28px, while the transform grips beside them reached 22px and answered over a
+   44px box. Two overlays over one photo that disagree about how big a grabber
+   *is* read as one overlay; two that disagree about how big a grabber is *to
+   touch* is the same defect with a worse consequence, because the crop box is
+   the control a thumb has to find blind on a phone.
+
+   `--ie-tap` is density-scaled, so the grab area moves with the setting while
+   the mark does not — the mark is pinned at 28px by `scales.test.ts` for the
+   reason the grips' mark is, and the two overlays still draw the same 14px.
+   `e2e/shader-*` is irrelevant here; the measurement is in
+   `e2e/journey.layout-measure.spec.ts`.
+
+   Symmetric, because a grab area offset from its own mark makes a precise drag
+   land somewhere the mark is not. `MIN_CROP_PX` in `src/lib/crop/geometry.ts` is
+   64, so the widest overlap this can create is the 12px band where the `nw`
+   grab meets the `w` grab at the smallest crop the tool will allow — and that
+   band is on the *inner* side of `nw`, nowhere near the corner a press aims
+   at. The mark stays centred on the corner either way, which is the whole
+   reason a corner drag is precise. */
+.handle::before {
+  content: '';
+  position: absolute;
+  top: calc((var(--ie-tap) - 28px) / -2);
+  left: calc((var(--ie-tap) - 28px) / -2);
+  width: var(--ie-tap);
+  height: var(--ie-tap);
 }
 .handle::after {
   content: '';
@@ -150,7 +206,7 @@
   position: absolute;
   top: 4px;
   left: 6px;
-  font-size: 10px;
+  font-size: var(--font-2xs);
   color: rgba(255, 255, 255, 0.8);
 }
 .cropDimensions {
@@ -159,10 +215,10 @@
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border-radius: 8px;
+  color: var(--ie-on-scrim);
+  border-radius: var(--radius-xs);
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--font-2xs);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
@@ -170,20 +226,152 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 4;
+  z-index: calc(var(--z-canvas) + 2);
 }
+/* The guide lines are drawn in the accent, and they were three hard-coded
+   `rgba(56, 178, 140, …)` — the *green* accent, spelled out. Every other
+   accent-bearing surface in the app reads `--ie-accent-bright`, so choosing
+   Cobalt drew a green line over the photo. The literal stays as the first
+   declaration on purpose: an engine that does not parse `color-mix` discards
+   the second and keeps today's rendering, and at the default accent the two
+   are the same colour to the bit. */
 .guideLine {
   position: absolute;
   left: 0;
   right: 0;
   height: 1px;
   background: rgba(56, 178, 140, 0.9);
+  background: color-mix(in srgb, var(--ie-accent-bright) 90%, transparent);
 }
 .guideBand {
   position: absolute;
   left: 0;
   right: 0;
   background: rgba(56, 178, 140, 0.12);
+  background: color-mix(in srgb, var(--ie-accent-bright) 12%, transparent);
   border-top: 1px dashed rgba(56, 178, 140, 0.7);
+  border-top: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, transparent);
   border-bottom: 1px dashed rgba(56, 178, 140, 0.7);
+  border-bottom: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, transparent);
+}
+
+/* ---------- Forced colours ---------- */
+
+/* The image's drop shadow and checkerboard are both dropped here, so the photo
+   has no edge at all against the canvas ground. The frame is what tells the
+   user where the image ends — including the transparent-margin case. */
+@media (forced-colors: active) {
+  .canvas {
+    background: Canvas;
+  }
+  .canvas :global(.ie-canvas-el) {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .compareToggle,
+  .compareBadge,
+  .cropDimensions {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+  .compareToggle[aria-pressed='true'] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .cropGrid,
+  .safeArea,
+  .handle::after {
+    border-color: CanvasText;
+    background: Canvas;
+  }
+  .guideLine {
+    background: Highlight;
+  }
+  :where(button, [tabindex]):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  /* The crop overlay's buttons and its hint carry their styling inline, and an
+     inline declaration outranks every rule here that does not say `!important`.
+     These two class names are the only way the block reaches them, and without
+     `!important` the block reaches nothing: WebKit composites
+     `rgba(0, 0, 0, 0.6)` over its `Canvas` to `#666666` and paints
+     `--ie-on-scrim` as `#000000` on it — 3.65:1 on "Reset crop" and
+     "Perspective". Chromium's forced mode happened to override the inline
+     background with its own palette and hid it; WebKit composited it. */
+  .overlayButton,
+  .overlayHint {
+    background: Canvas !important;
+    color: CanvasText !important;
+    border: 1px solid CanvasText !important;
+    forced-color-adjust: none;
+  }
+}
+
+/* ---------- Reduced transparency ---------- */
+
+/**
+ * More than half of this file is translucent, and all of it is translucent on
+ * purpose: the compare pill and the crop readout float over somebody's photo,
+ * where a solid panel is a rectangle pasted onto their image. That is the whole
+ * design, and it is also exactly what a reader who has told the OS that
+ * transparency is a problem is asking not to have — so every one of them
+ * collapses to the opaque colour it already resolved to against the canvas
+ * ground, `#121214`, rather than to a neutral grey.
+ *
+ * The crop *dimmer* (`.cropBox`'s 9999px shadow) and the passport guide lines
+ * are the two that change the most, and both in the same direction: they stop
+ * being a percentage of an unknown photo and become a stated value. Opaque
+ * black over a photo is the strongest dim there is; the guide lines are drawn
+ * in the accent at full alpha, which is the version a person can see and a
+ * person can photograph.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .compareToggle,
+  .compareBadge,
+  .cropDimensions {
+    background: #000;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .cropBox {
+    box-shadow: 0 0 0 9999px #000;
+  }
+  /* 50% and 85% white over an unknown photo, at full alpha. The thirds grid is
+     the one thing here that gets visibly heavier, and that is the trade the
+     setting asks for: a line that is 50% white is a line blended with
+     whatever is under it. */
+  .cropGrid {
+    background-image:
+      linear-gradient(to right, #fff 1px, transparent 1px),
+      linear-gradient(to bottom, #fff 1px, transparent 1px);
+    border: 1px solid #fff;
+  }
+  .handle::after {
+    background: #000;
+  }
+  .safeArea {
+    border: 1px dashed #949495;
+  }
+  .safeAreaLabel {
+    color: #d0d0d0;
+  }
+  /* The guides are the accent, at full alpha rather than at 90% and 12%. Both
+     are `color-mix` against the canvas ground so the *opaque* version is still
+     the accent the reader chose: a literal flatten here would put a green band
+     over a Cobalt session, which is the leak the accent tokens exist to stop.
+     An engine without `color-mix` drops these two declarations and keeps the
+     translucent ones above, which degrades to today's rendering rather than to
+     something broken. */
+  .guideLine {
+    background: var(--ie-accent-bright);
+  }
+  .guideBand {
+    background: color-mix(in srgb, var(--ie-accent-bright) 12%, var(--ie-canvas-bg));
+    border-top: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, var(--ie-canvas-bg));
+    border-bottom: 1px dashed color-mix(in srgb, var(--ie-accent-bright) 70%, var(--ie-canvas-bg));
+  }
 }

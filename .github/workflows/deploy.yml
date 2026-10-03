@@ -20,14 +20,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
+        # Matches .nvmrc and package.json "engines"; it was pinned to 20 here
+        # while AGENTS.md instructed v24.
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Formatting
+        # Repo-wide, and identical to ci.yml. This used to be a scoped list of
+        # paths, which meant a file added anywhere outside it shipped
+        # unformatted from the one workflow whose output users actually
+        # download — a failure mode that reads as a pass because the badge stays
+        # green. `.prettierignore` keeps `public/models/` (an orphaned local
+        # download) and `.kilo/` out.
+        run: npx prettier --check .
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      - name: Committed assets match their generators
+        run: npm run luts:gen -- --check && npm run icons:gen -- --check && npm run thumbs:gen -- --check
+      - name: Declared assets resolve to real files
+        run: npm run assets:verify
+      - name: Build
+        # A deploy ships the Look, thumbnail and font catalogues, so a missing
+        # strip or woff2 is a broken install for every user, not just a dev
+        # annoyance. REQUIRE_ASSETS=1 is set here (unlike a local build) so the
+        # prebuild downloader hard-fails rather than warns.
+        run: REQUIRE_ASSETS=1 npm run build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

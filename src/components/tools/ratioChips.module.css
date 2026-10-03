@@ -1,0 +1,173 @@
+/**
+ * The shape chips.
+ *
+ * `ChipRow` and `.chip` in `controls.module.css` are the app's one chip system,
+ * and this file is a *second* set of rules rather than an extension of it, which
+ * is worth saying out loud: the shape slot, the millimetre line and the two
+ * shape-less mode chips are all genuinely new, and re-declaring the chip box
+ * here is what keeps them in one place instead of scattered as overrides across
+ * two files. Everything below is written from the tokens `controls.module.css`
+ * already uses, so the two sets of chips are the same chip at rest and under
+ * every appearance mode.
+ */
+
+/* The row wraps; it does not scroll.
+   This is the decision `exportSheet.module.css` already records for the 360px
+   inspector column, taken for the same reason: the crop panel's six platform
+   rows are 500–890px of chips in a 327px column, and a row that scrolls
+   sideways there costs a horizontal swipe inside a panel that is itself being
+   scrolled vertically.
+
+   It was also worse than "two gestures". The fade `ChipRowShell` applies while
+   a row overflows is 34px wide, which is *narrower than the label it covers*,
+   so the affordance saying "there is more this way" was also what made the chip
+   under it read as a truncated word — "LinkedI" where the label said
+   "LinkedIn 1:1", "YouTu" where it said "YouTube 16:9". A fade can only
+   honestly say "there is more" if it does not also destroy the label beside it.
+   Wrapping costs one to three extra lines per row and no information: nothing is
+   shortened and nothing is hidden.
+
+   `overflow-x: auto` and `.rowMore` both stay, as the seatbelt for the one case
+   wrapping cannot fix — a single chip wider than the whole column. So the fade is
+   a real last resort rather than a dead class, and a label can never end up
+   clipped somewhere it cannot be reached from. `align-content: flex-start` keeps
+   the extra lines at their own height rather than being stretched by spare height
+   in the row. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 10px;
+  scrollbar-width: none;
+}
+.row::-webkit-scrollbar {
+  display: none;
+}
+/* Applied only while there is genuinely more to scroll to, which after the wrap
+   above means only for a chip too wide for the column on its own. A mask rather
+   than a painted gradient, so it works in both themes without naming the panel
+   colour. */
+.rowMore {
+  mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+}
+
+.chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ie-hairline);
+  background: var(--ie-fill-rest);
+  color: var(--ie-ink);
+  padding: 5px 12px 5px 8px;
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: calc(0.8125rem * var(--text-scale));
+  min-height: calc(36px * var(--density-factor));
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chipActive {
+  background: var(--ie-accent);
+  border-color: var(--ie-accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.chip:hover:not(.chipActive) {
+  background: var(--ie-fill-hover);
+}
+
+/* The viewfinder's box, sized from the ratio in JS so a 16:9 really is 16:9 at
+   any chip size. `flex: none` because a proportional box inside a shrinking
+   flex row is exactly the element that gets squeezed back into a square, and a
+   square viewfinder labelled 16:9 is the one lie this design cannot ship. */
+.frame {
+  display: block;
+  flex: none;
+  line-height: 0;
+}
+.frame svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.text {
+  display: block;
+}
+.label {
+  display: block;
+  line-height: 1.25;
+}
+/* The millimetre line under a print size. It is the half of a print chip that
+   the ratio could not be: a page outline says "sheet of paper" and nothing
+   about how big, and `A4` alone is a code, not a measurement. */
+.detail {
+  display: block;
+  font-size: var(--font-2xs);
+  line-height: 1.25;
+  color: var(--ie-ink-soft);
+}
+.chipActive .detail {
+  /* `--on-accent`, not the soft ink: this sits on `--ie-accent`, and
+     `--ie-ink-soft` is 60% white, which is a 3.4:1 pairing on that ground.
+     The same token is remapped to `HighlightText` under forced colors, so the
+     one rule is correct in both modes. */
+  color: var(--on-accent);
+}
+
+/* `Free` makes no shape claim, so it is not handed a rectangle — a fake frame
+   beside nine real ones is worse than no frame, because it is the one the eye
+   cannot check. It draws the open-corner crop mark instead, which says "a crop
+   region of whatever shape" by having no edge to measure, and it additionally
+   takes a dashed outline: the one thing a dashed border reliably says. */
+.unlocked {
+  border-style: dashed;
+}
+
+/* ---------- Forced colours / increased contrast ---------- */
+
+@media (forced-colors: active) {
+  .chip {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  .chipActive {
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  /* A dashed outline is a `CanvasText` dashed outline here too — the system
+     palette has no dash — and the shape has to survive as a shape, which it
+     does: the glyphs are strokes in `currentColor`, which forced colors maps
+     onto `CanvasText` and `HighlightText` without a rule of ours. */
+  .detail {
+    color: CanvasText;
+  }
+  .rowMore {
+    mask-image: none;
+    border-right: 2px solid CanvasText;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .chip {
+    background: Canvas;
+    border-color: var(--ie-ink);
+  }
+  .chipActive {
+    background: var(--ie-accent);
+    border-color: var(--ie-accent);
+    color: var(--on-accent);
+  }
+  .detail {
+    color: var(--ie-ink);
+  }
+  .chipActive .detail {
+    color: var(--on-accent);
+  }
+}

@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    // `DOM` is here for `e2e/**` and `playwright.config.ts`, whose callbacks
+    // are serialised into a browser page. It is a real loosening for
+    // `scripts/**/*.mjs`, which is Node-only, but there is no per-file `lib`
+    // and splitting the project just to keep ambient types honest would be a
+    // worse trade than one extra global.
+    "lib": ["ES2023", "DOM"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -11,7 +16,15 @@
     "moduleDetection": "force",
     "noEmit": true,
 
+    // scripts/*.mjs is real code with a typo away from shipping a broken build
+    // step, and neither tsconfig.app.json (src only) nor the old node config
+    // (vite.config.ts only) ever looked at it. checkJs without allowJs is
+    // rejected; the pair is how .mjs gets inferred.
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["node"],
+
     "strict": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "playwright.config.ts", "e2e/**/*.ts", "scripts/**/*.mjs"]
 }

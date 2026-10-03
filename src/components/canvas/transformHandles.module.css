@@ -1,0 +1,307 @@
+/**
+ * D6-F14 — the on-canvas transform handles.
+ *
+ * Every value here is read from a token that already exists, and the file exists
+ * rather than extending `canvas.module.css` because the crop overlay is another
+ * district's: this is the selection outline and the grips for the layer the user
+ * has selected, and it shares `canvas.module.css`'s *coordinate* transform
+ * (`.transformFrame` below is deliberately the same declaration `.imageFrame`
+ * uses) without sharing its stylesheet.
+ *
+ * Two of the three sizes here are fixed on purpose:
+ *
+ * - The visible grip is 28px, exactly what the crop handles are, because two
+ *   overlays over one photo that disagree about how big a grabber looks are one
+ *   overlay. `scales.test.ts` › _leaves the precision targets exactly where they
+ *   were_ pins `.handle` to 28 at every density for the same reason, and a grip
+ *   that grew with the density setting would be the same grip at two sizes.
+ * - The *hit* area is `--ie-tap` — `calc(44px * var(--density-factor))` — which
+ *   is the token `tokens.css` reserves for controls. 28px is a fine pointer and a
+ *   poor thumb, and a transform grip is the one control on the canvas that a
+ *   finger has to find blind.
+ *
+ * Both of those numbers were re-measured rather than taken on trust, because a
+ * `getBoundingClientRect()` reads the *mark* and says nothing about what answers
+ * to a press, and an audit that measured only the mark concluded this file was
+ * shipping 28px hit targets. It is not: hit-testing the `nw` box in Chromium
+ * reached 22px from its centre in every direction and no further, which is a
+ * 44x44 answer over a 28px mark — exactly `--ie-tap`. The crop handles, measured
+ * the same way, reached 14px and no further, i.e. only their own 28px: they were
+ * the real defect, and `canvas.module.css` now carries the identical overhang
+ * rather than this file being inflated to meet them.
+ *
+ * So 28px stays, in both files, and what changed is that both overlays now answer
+ * over `--ie-tap`. Raising the *mark* to 44px is the other available answer and it
+ * is the wrong one: it puts a 44px white square on all four corners of somebody's
+ * photograph, it turns the crop box's edge handles into stops rather than
+ * precision targets, and `scales.test.ts` pins 28 for that reason in its own
+ * right. The measurement is in `e2e/journey.layout-measure.spec.ts`.
+ *
+ * `--icon-scale` is deliberately *not* read here: it moves glyphs, and these are
+ * not glyphs. They are hit targets and an outline, and the density multiplier is
+ * the one the model reserves for controls.
+ *
+ * ## Why the grips and the crop handles now share a fill
+ *
+ * `canvas.module.css`'s `.handle::after` is the same mark on the crop overlay. It
+ * draws a 2px opaque white ring around a dark interior, and this file used to draw
+ * the other way round — a near-white fill inside a dark ring — so "drag a handle"
+ * was two designs in one product, in the two overlays a user is most likely to have
+ * open at once (a selected layer, on a photo that has been cropped). Three things
+ * converge on the crop's version:
+ *
+ *  - **The system-colour path already agreed.** Under `forced-colors` both marks
+ *    are `background: Canvas; border-color: CanvasText` — see the block at the foot
+ *    of this file and the matching one in `canvas.module.css`. The default theme was
+ *    the only place the two disagreed, so this change makes the themed path say what
+ *    the unthemed one has always said.
+ *  - **A handle sits *on* a light line.** The crop box's edge is solid near-white
+ *    and the layer outline is a light dashed stroke. A near-white mark merges with
+ *    the line it sits on; a white ring around a dark interior keeps that line
+ *    readable through and around the mark, and keeps a 14px mark reading as a small
+ *    square rather than as a blob.
+ *  - **The pair is defined by its two ends, not by a tint of the photo.** The ring
+ *    is opaque white and the interior is black, so the mark survives a white
+ *    photograph as well as a black one. A translucent light fill does not.
+ *
+ * Rotation stays different in both overlays, and stays different by *shape* — a
+ * filled circle in the accent colour rather than a square — so the two gestures are
+ * still told apart by a cue that survives a greyscale print and forced colours. The
+ * crop overlay's perspective corners now read the same accent token the rotate grip
+ * does, so choosing "Cobalt" moves both dots.
+ */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-canvas) + 1);
+  pointer-events: none;
+}
+
+/**
+ * The compositor's own box, in the compositor's own transform: centred on the
+ * canvas, panned and zoomed exactly as `applyLayout` positions the presentation
+ * canvas, so a handle is over the layer's pixel rather than over an
+ * approximation of it. Grip sizes are cancelled back out with `1 / zoom` below,
+ * which is what makes them constant in screen pixels at every zoom level.
+ */
+.transformFrame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/*
+ * The named group. It has no box of its own to give — a `div` with no size is
+ * `hidden` to anything that measures visibility, which is what a screen reader
+ * does and what a `getByRole(...).toBeVisible()` assertion does — so it takes the
+ * frame's box and stays transparent to the pointer.
+ *
+ * It is also where a layer too small for its own grips is measured. `--box-w` and
+ * `--box-h` are the selected layer's box *as the user sees it*, in the same
+ * units the 28px mark and `--ie-tap` are written in (the frame's own, which
+ * `scale(1 / --grip-zoom)` below cancels, so one grip is 28 screen pixels at
+ * every zoom). The component is the only thing that knows the box; everything
+ * that follows is arithmetic on a token it cannot see, so it lives here where
+ * `--ie-tap` lives and cannot drift from it.
+ *
+ * **The two pads are deliberately different, and why is the whole of item 4.**
+ * A one-line text layer is 34px tall on a phone and 2px tall at the 5% floor of
+ * `SCALE_MIN`. A grip is 28px of mark inside a 44px grab area, so on such a layer
+ * the top and bottom pairs sit *on top of each other*: measured in a real
+ * browser, at 50% the `nw` grab reached 1px below its own centre before `sw`
+ * answered instead, and at 5% the four grips coincided to within a pixel, each
+ * grip's reach was **0px in all four directions**, and every corner of the drawn
+ * outline hit the *rotate* grip. Not "a bit cramped": all five controls in the
+ * overlay dead to a pointer.
+ *
+ *   · `--grip-pad-y` puts the top pair above the box and the bottom pair below
+ *     it by the shortfall against one grab target, so the pair are always at
+ *     least `--ie-tap` apart and their grab areas cannot meet. On a layer that is
+ *     already taller than a grab target this is 0 and nothing moves.
+ *   · `--grip-pad-x` is *not* the same formula. The rotate grip shares the
+ *     centre line, so the left and right pairs have to clear `hit / 2` from it,
+ *     not merely clear each other: the shortfall is against half the box. On a
+ *     layer at least `2 x --ie-tap` wide it is 0, which is every photo, sticker
+ *     and line of text; it only grows on a sliver narrower than 88px.
+ *
+ * No grip is hidden, collapsed or merged in either case. The layer is smaller
+ * than the control, so the control goes outside the layer rather than four of
+ * them pretending to be one.
+ */
+.handleGroup {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --grip-pad-y: max(0px, (var(--ie-tap) - var(--box-h, 0px)) / 2);
+  --grip-pad-x: max(0px, var(--ie-tap) - var(--box-w, 0px) / 2);
+}
+
+.outline {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Two strokes, not one colour: a dark 2.5px line under a light dashed 1.5px one.
+   A single 1.5px line is invisible over a highlight and a single dark one is
+   invisible over a shadow, and the dash is the cue that survives forced colours,
+   a greyscale print and a monochrome preview alike. */
+.outlineHalo {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.75);
+  stroke-width: 2.5;
+}
+.outlineStroke {
+  fill: none;
+  stroke: var(--ie-ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.grip {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  /* The mark's centre is the corner the component placed, `14px` back — and, for
+     a layer too small to hold its own grips, the pad further out so they do not
+     pile up. `0px` is the pad of every layer that is big enough, so this is the
+     old `-14px` and nothing else. */
+  margin: calc(-14px - var(--grip-pad-y)) 0 0 calc(-14px - var(--grip-pad-x));
+  transform: scale(var(--grip-zoom, 1));
+  transform-origin: center;
+  pointer-events: auto;
+  touch-action: none;
+}
+/* The right-hand pair pushes out the other way, and the bottom pair likewise. */
+.gripNe,
+.gripSe {
+  margin-left: calc(-14px + var(--grip-pad-x));
+}
+.gripSw,
+.gripSe {
+  margin-top: calc(-14px + var(--grip-pad-y));
+}
+
+/* The grab area, which is larger than the grip and is what a finger has to hit:
+   the overhang takes the 28px mark to a full `--ie-tap` box, which is 8px a side
+   at the default density and a little more at `roomy`. It is a full `--ie-tap`
+   square because the pads on `.handleGroup` are what keep two of these from
+   overlapping: they guarantee the grip centres are at least `--ie-tap` apart, so
+   shrinking this box to stop the overlap would buy nothing that the geometry has
+   not already bought. */
+.grip::before {
+  content: '';
+  position: absolute;
+  top: calc((var(--ie-tap) - 28px) / -2);
+  left: calc((var(--ie-tap) - 28px) / -2);
+  width: var(--ie-tap);
+  height: var(--ie-tap);
+}
+
+.grip::after {
+  content: '';
+  position: absolute;
+  /* 7px, which is the crop handle's own inset: the two overlays over one photo
+     have to draw the same 14px mark or they read as two systems. The *fill* is the
+     crop handle's too — a 2px opaque white ring around a dark interior — and the
+     three reasons are below, because this is the one declaration in the product
+     that was deliberately the other way round and is now not. */
+  inset: 7px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid #fff;
+  border-radius: 2px;
+}
+
+.gripNw {
+  cursor: nwse-resize;
+}
+.gripNe {
+  cursor: nesw-resize;
+}
+.gripSe {
+  cursor: nwse-resize;
+}
+.gripSw {
+  cursor: nesw-resize;
+}
+
+/* A circle, so the rotate grip is not the same mark as a scale grip and its
+   purpose is readable without a label or a colour. */
+.rotateGrip::after {
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--ie-accent-bright);
+}
+/* The rotate grip keeps its own `ROTATE_GAP` above the top row of scale grips,
+   and the top row has moved up by `--grip-pad-y`, so it moves with it. Without
+   this it sat `ROTATE_GAP` above a row that had dropped away from it and, on a
+   sliver, inside the grab area of the pair it was meant to sit above.
+
+   `margin` is restated in full rather than `margin-top` alone because `.grip`'s
+   shorthand puts the *horizontal* pad on the rotate grip too — and the rotate
+   grip sits on the centre line, which is the one place the horizontal pad exists
+   to keep clear. Inheriting it dragged the rotate grip off the layer's own centre
+   and over the top-left grip, which is how the fix for the thin layer put its
+   top-left grip back to being unreachable. */
+.rotateGrip {
+  cursor: grab;
+  margin: calc(-14px - var(--grip-pad-y)) 0 0 -14px;
+}
+
+/**
+ * The ring is the token the whole app draws focus with, and the editor has
+ * already re-pointed `--focus-ring` at the accent for its hardcoded-dark ground,
+ * so this is correct in both themes and for all four accents. The global rule in
+ * `base.css` reaches these too — they are `[tabindex]` — but it is a 2px ring at
+ * the default offset and these sit on a photograph, so the canvas states its own.
+ */
+.grip:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.grip:focus-visible::after {
+  border-color: var(--focus-ring);
+}
+
+@media (forced-colors: active) {
+  .outlineHalo {
+    stroke: Canvas;
+  }
+  .outlineStroke {
+    stroke: CanvasText;
+  }
+  .grip::after,
+  .rotateGrip::after {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .grip:focus-visible {
+    outline: 3px solid Highlight;
+  }
+  .grip:focus-visible::after {
+    border-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .outlineHalo {
+    stroke: #000;
+  }
+  /* The mark's own translucent interior becomes opaque, which is the whole point of
+     the setting; the ring is already opaque and only the dark halo under the
+     outline needed restating. `rotateGrip` keeps `border-color: #000` because its
+     fill is the opaque accent and its ring is the only thing separating it from the
+     photograph. */
+  .grip::after {
+    background: #000;
+    border-color: #fff;
+  }
+  .rotateGrip::after {
+    border-color: #000;
+  }
+}

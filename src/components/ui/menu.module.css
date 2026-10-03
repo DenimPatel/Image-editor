@@ -1,0 +1,161 @@
+/*
+ * The overflow menu, and the vocabulary it now shares with the other two surfaces
+ * in this corner of the editor.
+ *
+ * The audit found three designs where there should be one: this popover was "a plain
+ * dark rect with seven ungrouped rows and no icons", the appearance panel was a
+ * 427px sheet with six live previews, and the help overlay was a centred modal with
+ * a permanent accent ring that looked like an error box.
+ *
+ * What is genuinely different and stays different: the *structure*. This is a
+ * `role="menu"` of `menuitem`s, the appearance panel is a `radiogroup` of live
+ * previews, and the help overlay is a `role="dialog"`. Those are three different jobs
+ * and collapsing them would cost a keyboard contract each.
+ *
+ * What is not different and is now one thing: the surface. Same hairline, same
+ * `--radius-md`, same `--ie-chrome-solid`, same shadow, same `--z-menu`, and the same
+ * row metrics as the appearance panel's choices — 42px a row, `--radius-xs` corners,
+ * the same hover fill, the same `--ink-soft` for a disabled row. The rows also gained
+ * the two things the appearance panel's rows have and this one did not: a glyph slot
+ * and a separator.
+ *
+ * `.menuItemIcon` is a fixed-width slot rather than an inline glyph so the labels
+ * line up as a column whether or not a row has a mark. It is `aria-hidden` at the
+ * call site, and `icon()` hides its own artwork by default, so a decorated row still
+ * announces only its label.
+ */
+.menu {
+  /* The editor shell is the positioning context (`position: fixed`, z-index 30)
+     and this renders as a sibling of its top bar, so `z-index: 42` puts it over
+     the desktop inspector at 41 without inheriting the top bar's context. */
+  --focus-ring: var(--ie-accent-bright);
+  position: absolute;
+  top: calc(48px + var(--ie-safe-top));
+  right: 8px;
+  z-index: var(--z-menu);
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-md);
+  background: var(--ie-chrome-solid);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.menuEnd {
+  right: 8px;
+}
+
+/* One group per block of rows. `display: contents` so the wrapper contributes
+   nothing to layout: a `div` between `role="menu"` and its `menuitem`s would
+   otherwise become the thing `gap` applies to and put four pixels between rows that
+   are meant to read as one block. */
+.menuGroup {
+  display: contents;
+}
+
+/* A separator, not a blank line. Seven rows in one column make a reader read seven
+   to find one; the split is "the editor's own settings, then this document's edits",
+   and a blank line states that far more weakly than a rule does. `role="separator"`
+   rather than a styled `hr`, so it is announced and so it does not become a focus
+   stop. */
+.menuSeparator {
+  display: block;
+  height: 1px;
+  margin: 6px 6px;
+  background: var(--ie-hairline);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: calc(42px * var(--density-factor));
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ie-ink);
+  font: inherit;
+  font-size: calc(0.875rem * var(--text-scale));
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover:not(:disabled) {
+  background: var(--ie-fill-hover);
+}
+.menuItem:disabled {
+  color: var(--ie-ink-soft);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.menuItemIcon {
+  flex: 0 0 auto;
+  width: calc(18px * var(--icon-scale));
+  height: calc(18px * var(--icon-scale));
+  color: var(--ie-ink-soft);
+}
+.menuItem:hover:not(:disabled) .menuItemIcon {
+  color: var(--ie-ink);
+}
+
+.menuItemLabel {
+  /* The label takes what is left and clips rather than pushing the menu wider: a
+     menu that grows to fit its longest row stops being a menu beside a button and
+     starts being a panel, which is the other of the two designs this file is being
+     brought in line with. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .menu {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .menuItem {
+    background: Canvas;
+    color: CanvasText;
+  }
+  .menuItem:hover:not(:disabled) {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .menuItem:disabled {
+    color: GrayText;
+  }
+  .menuSeparator {
+    background: CanvasText;
+  }
+  .menuItemIcon {
+    color: CanvasText;
+  }
+  :where(button, [tabindex]):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .menu {
+    border-color: var(--ie-hairline);
+  }
+  .menuItem {
+    color: var(--ie-ink);
+  }
+  .menuItem:hover:not(:disabled) {
+    background: var(--ie-accent);
+    color: var(--on-accent);
+  }
+  .menuSeparator {
+    background: var(--ie-ink-soft);
+  }
+  .menuItemIcon {
+    color: var(--ie-ink);
+  }
+}

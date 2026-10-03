@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Licences and attribution &mdash; Interactive Image Editor</title>
+    <!--
+      A static file on purpose. The app links here from the Hub footer and from
+      the crash screen, and the crash screen is exactly the moment a route-based
+      page would be unavailable: the router may be part of what is broken. This
+      document is served by the same origin and needs no JavaScript, no module
+      graph and no state.
+
+      The contents are generated from `src/lib/licenses.ts` by
+      `src/components/ui/licenses.test.ts`, which fails if a bundled work is
+      missing from this page. That test is why the list can be trusted to be
+      complete against `package.json` and `models.lock.json`.
+    -->
+    <style>
+      /*
+        A standalone document, so the tokens it needs are declared here rather
+        than imported: `src/styles/tokens.css` is bundled into the app and is
+        not served at this path. The values are the same six the app's light and
+        dark palettes use, and the raw hex lives in these two blocks and nowhere
+        else — every rule below reads a token. Sizes read `--step-*` for the
+        same reason: nothing outside the token block carries a bare `rem`.
+      */
+      :root {
+        color-scheme: light dark;
+        --bg: #fafaf8;
+        --surface: #ffffff;
+        --line: #e6e4dc;
+        --ink: #1c1c1a;
+        --ink-soft: #4a4a46;
+        --muted: #63635c;
+        --accent: #1f6f5c;
+        --accent-tint: #e7f1ee;
+        --focus-ring: #0b5c48;
+        --step-1: 0.75rem;
+        --step-2: 0.8125rem;
+        --step-3: 0.875rem;
+        --step-4: 1.25rem;
+        --step-5: 1.75rem;
+        --space-1: 0.5rem;
+        --space-2: 1rem;
+        --space-3: 1.75rem;
+        --radius: 0.75rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #17181a;
+          --surface: #1f2222;
+          --line: #33362f;
+          --ink: #f2f1ea;
+          --ink-soft: #c9c7be;
+          --muted: #8b8a82;
+          --accent: #4fa98c;
+          --accent-tint: #1b342c;
+          --focus-ring: #7fe0bd;
+        }
+      }
+      @media (prefers-contrast: more) {
+        :root {
+          --line: var(--ink);
+          --muted: var(--ink);
+        }
+      }
+      @media (forced-colors: active) {
+        :root {
+          /* Pin the scheme before any system colour is asked for. WebKit
+             resolves `LinkText`, `Highlight` and the rest against the *page's*
+             declared `color-scheme` rather than against one forced palette, so a
+             document that says `light dark` gets the dark-mode link blue on the
+             dark-mode canvas — `#385575` on `#1e1e1e`, 2.16:1 — and no token
+             value can rescue it, because the substitution happens after the
+             cascade. One scheme, one palette, and the pairings below hold. */
+          color-scheme: only light;
+          --bg: Canvas;
+          --surface: Canvas;
+          --line: CanvasText;
+          --ink: CanvasText;
+          --ink-soft: CanvasText;
+          --muted: CanvasText;
+          /* `LinkText`, not `Highlight`. Under forced colors the OS owns the
+             palette and only guarantees that a system's link colour is legible on
+             its own canvas — nothing promises `Highlight` is. WebKit's emulated
+             pair is `#b3d7fe` on `#ffffff`, which is 1.49:1, and it is the same
+             38 times over because every licence URL is a link. `Highlight` is
+             reserved for a *selected* thing, and its guaranteed partner is
+             `HighlightText`, not `Canvas`. */
+          --accent: LinkText;
+          --accent-tint: Canvas;
+          --focus-ring: Highlight;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: var(--space-3) var(--space-2);
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          'IE Self-Hosted',
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        font-size: var(--step-3);
+        line-height: 1.6;
+      }
+      main {
+        max-width: 60rem;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 var(--space-1);
+        font-size: var(--step-5);
+        line-height: 1.2;
+      }
+      h2 {
+        margin: var(--space-3) 0 var(--space-1);
+        padding-bottom: var(--space-1);
+        border-bottom: 1px solid var(--line);
+        font-size: var(--step-4);
+        line-height: 1.25;
+      }
+      h3 {
+        margin: var(--space-2) 0 var(--space-1);
+        font-size: var(--step-3);
+      }
+      p,
+      li {
+        color: var(--ink-soft);
+      }
+      a {
+        color: var(--accent);
+        text-underline-offset: 2px;
+      }
+      a:focus-visible {
+        outline: 3px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: var(--step-2);
+      }
+      .panel {
+        margin: var(--space-2) 0;
+        padding: var(--space-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .panel p {
+        margin: 0;
+      }
+      .panel .options {
+        margin: var(--space-1) 0 0;
+        padding-left: 1.25rem;
+      }
+      .panel .options li + li {
+        margin-top: var(--space-1);
+      }
+      .panel .closing {
+        margin-top: var(--space-1);
+        color: var(--ink-soft);
+      }
+      .headline {
+        margin: 0 0 var(--space-1);
+        font-size: var(--step-3);
+        font-weight: 700;
+        color: var(--ink);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: var(--space-1) 0 var(--space-2);
+      }
+      caption {
+        text-align: left;
+        padding-bottom: var(--space-1);
+        color: var(--muted);
+        font-size: var(--step-1);
+      }
+      th,
+      td {
+        padding: var(--space-1);
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: var(--step-2);
+        font-weight: 400;
+      }
+      th[scope='row'] {
+        min-width: 11rem;
+        color: var(--ink);
+      }
+      .name {
+        display: block;
+        font-weight: 600;
+      }
+      .meta {
+        display: block;
+        color: var(--muted);
+        font-size: var(--step-1);
+      }
+      .via {
+        color: var(--muted);
+        font-size: var(--step-1);
+      }
+      .url {
+        overflow-wrap: anywhere;
+        font-size: var(--step-1);
+      }
+      .notice {
+        color: var(--muted);
+        font-size: var(--step-1);
+      }
+      code {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: var(--step-1);
+      }
+      footer {
+        margin-top: var(--space-3);
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: var(--step-1);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Licences and attribution</h1>
+      <p class="lede">
+        Everything the Interactive Image Editor ships that is not this project&rsquo;s own code: 14
+        self-hosted font files and 19 software packages, with the licence each one is redistributed
+        under. The app&rsquo;s own code is MIT; that licence does not extend to any of the works
+        below, and this page is the attribution that does.
+      </p>
+      <p class="lede">
+        The build identifier for the running app is shown in the Hub footer and on the crash screen.
+        Quote it in a bug report — it is the difference between a report that can be reproduced and
+        one that cannot.
+      </p>
+
+      <h2>Two obligations worth reading first</h2>
+      <div class="panel">
+        <h3 class="headline">@imgly/background-removal is AGPL-3.0, not MIT</h3>
+        <p>
+          The published package carries the GNU Affero General Public License v3 in its
+          <code>LICENSE.md</code>. It is imported dynamically, so it is fetched only when the
+          Background tool runs, and its model weights are not bundled in this repository &mdash; but
+          none of that reduces what a redistributor owes. This is an unresolved decision, not a
+          resolved one; the three options and what each costs are set out in the panel below.
+        </p>
+      </div>
+      <div class="panel">
+        <h3 class="headline">The fonts are OFL 1.1, redistributed unmodified</h3>
+        <p>
+          OFL &sect;2 requires a copy of the licence to accompany every copy of the Font Software,
+          and it ships beside the fonts at
+          <a href="./fonts/OFL-1.1.txt">/fonts/OFL-1.1.txt</a>. What ships is Google Fonts&rsquo;
+          own published latin/latin-ext woff2 subset, byte-for-byte and sha256-pinned, so this
+          project creates no Modified Version and &sect;3&rsquo;s Reserved Font Name restriction is
+          not engaged. The <code>IE &lt;Family&gt;</code> the Text panel lists is a CSS alias, not a
+          rename of the file. Roboto Mono is the one bundled font under Apache-2.0 instead; its text
+          is at <a href="./fonts/Apache-2.0.txt">/fonts/Apache-2.0.txt</a>.
+        </p>
+      </div>
+
+      <h2>An open licence decision: shipping an AGPL library in an MIT app</h2>
+      <div class="panel">
+        <h3 class="headline">This page does not choose. It states what is owed.</h3>
+        <p>
+          <strong>What is true.</strong> <code>@imgly/background-removal@1.7.0</code> is AGPL-3.0:
+          the package&rsquo;s own <code>LICENSE.md</code> opens with the GNU Affero General Public
+          License v3, and there is no MIT anywhere in it. It is a runtime dependency of this
+          application, dynamically imported by the Background tool. This application&rsquo;s own
+          code is MIT; that licence does not extend to the AGPL work linked into the same bundle.
+        </p>
+        <p>
+          <strong>Who owes what.</strong> An end user who merely runs the hosted app is a
+          <em>user</em> of the AGPL, not a conveyer &mdash; running it is not distribution, so the
+          everyday visitor owes nothing. Anyone who <strong>distributes this build</strong> is
+          conveying a combined work (this application plus the AGPL library linked into it) and owes
+          the corresponding source under AGPL &sect;5(a). AGPL &sect;13 additionally puts a hosted,
+          <em>modified</em> deployment in scope, so &ldquo;it only runs on GitHub Pages&rdquo; is a
+          distribution question, not an exemption.
+        </p>
+        <p>
+          <strong>What is not decided here.</strong> The choice between the three options below is
+          an owner&rsquo;s decision about licensing, hosting and product scope rather than a fact
+          about the tree, so it is recorded here with its costs instead of being quietly resolved in
+          a comment.
+        </p>
+        <ol class="options">
+          <li>
+            <strong>Obtain permission.</strong> Ask imgly for a commercial licence, for the cut-out
+            to be relicensed, or for an explicit exemption. It may be granted and it may not, on
+            their timetable rather than ours. Until it is in writing the obligation stands. Nothing
+            else in the repository has to change while the request is outstanding.
+          </li>
+          <li>
+            <strong>Replace the dependency.</strong> Implement or license background removal another
+            way and drop <code>@imgly/background-removal</code>. This is the only option that ends
+            the obligation by removing its cause. It costs a matting model and a runtime, and the
+            manual background-replacement path that exists today is not a cut-out &mdash; it needs a
+            matte to show through, and the matte is what this library produces. The Background tool
+            cannot ship in its current form without it.
+          </li>
+          <li>
+            <strong>Publish the corresponding source.</strong> Oblige under &sect;5(a) rather than
+            asking for or avoiding anything: release this application&rsquo;s complete corresponding
+            source alongside every distribution, including the build scripts and the modifications a
+            recipient makes. This project&rsquo;s own code is MIT and stays MIT; the AGPL reaches
+            only the combined work. The cost is the ongoing obligation, and the loss of the ability
+            to distribute the build as a closed product.
+          </li>
+        </ol>
+        <p class="closing">
+          The accurate statement today is that the obligation exists and is unmet for anyone who
+          conveys this build. &ldquo;Anyone redistributing this build should read the upstream
+          licence before shipping it&rdquo; is advice, and advice discharges an obligation under no
+          licence at all.
+        </p>
+      </div>
+
+      <h2>Fonts</h2>
+      <p class="lede">
+        13 of the 14 are SIL OFL 1.1 and one is Apache-2.0. Each is the latin or latin-ext woff2
+        Google Fonts published, fetched once, verified against the sha256 in models.lock.json and
+        served from this origin; none is fetched from a font CDN at runtime, and none is subset by
+        this project. The Text panel lists them under an
+        <code>IE &lt;Family&gt;</code> CSS alias so its own choices do not collide with a font
+        installed on the machine; that alias is not a rename of the file, whose internal name table
+        still carries the family Google published.
+      </p>
+      <table>
+        <caption>
+          Bundled font files
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Font</th>
+            <th scope="col">Why it is bundled</th>
+            <th scope="col">Upstream</th>
+            <th scope="col">Redistribution notice</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              <span class="name">Inter</span><span class="meta">v20 subset &middot; OFL-1.1</span>
+            </th>
+            <td>The default text layer face in the editor, and the app’s own UI face.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Inter">fonts.google.com/specimen/Inter</a>
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Inter Bold</span
+              ><span class="meta">v20 subset, weight 700 &middot; OFL-1.1</span>
+            </th>
+            <td>The bold weight of the default text layer face.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Inter">fonts.google.com/specimen/Inter</a>
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Playfair Display</span
+              ><span class="meta">v40 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A serif option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Playfair+Display"
+                >fonts.google.com/specimen/Playfair+Display</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Oswald</span><span class="meta">v57 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A condensed option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Oswald"
+                >fonts.google.com/specimen/Oswald</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Montserrat</span
+              ><span class="meta">v31 subset, weight 600 &middot; OFL-1.1</span>
+            </th>
+            <td>A geometric sans in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Montserrat"
+                >fonts.google.com/specimen/Montserrat</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Lora</span><span class="meta">v37 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A text serif in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Lora">fonts.google.com/specimen/Lora</a>
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Roboto Mono</span
+              ><span class="meta">v31 subset &middot; Apache-2.0</span>
+            </th>
+            <td>The monospace option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Roboto+Mono"
+                >fonts.google.com/specimen/Roboto+Mono</a
+              >
+            </td>
+            <td class="notice">
+              Apache-2.0 §4 requires the licence copy to accompany the redistribution; it is at
+              /licenses.html. No Reserved Font Name clause applies to this family, and the subset
+              keeps the family name in its own internal tables only.
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Caveat</span><span class="meta">v23 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A handwriting option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Caveat"
+                >fonts.google.com/specimen/Caveat</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Pacifico</span
+              ><span class="meta">v23 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A script option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Pacifico"
+                >fonts.google.com/specimen/Pacifico</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Bebas Neue</span
+              ><span class="meta">v16 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A display-caps option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Bebas+Neue"
+                >fonts.google.com/specimen/Bebas+Neue</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">DM Serif Display</span
+              ><span class="meta">v17 subset &middot; OFL-1.1</span>
+            </th>
+            <td>A display serif in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/DM+Serif+Display"
+                >fonts.google.com/specimen/DM+Serif+Display</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Space Grotesk</span
+              ><span class="meta">v22 subset, weight 500 &middot; OFL-1.1</span>
+            </th>
+            <td>A grotesque option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Space+Grotesk"
+                >fonts.google.com/specimen/Space+Grotesk</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Archivo</span
+              ><span class="meta">v25 subset, weight 600 &middot; OFL-1.1</span>
+            </th>
+            <td>A grotesque option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Archivo"
+                >fonts.google.com/specimen/Archivo</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Barlow</span
+              ><span class="meta">v13 subset, weight 500 &middot; OFL-1.1</span>
+            </th>
+            <td>A sans option in the Text tool’s font list.</td>
+            <td class="url">
+              <a href="https://fonts.google.com/specimen/Barlow"
+                >fonts.google.com/specimen/Barlow</a
+              >
+            </td>
+            <td class="notice">
+              Redistributed as the latin/latin-ext woff2 subset Google Fonts published,
+              byte-for-byte and sha256-pinned. This project makes no subset of its own, so no
+              Reserved Font Name is used by a version this project created (OFL 1.1 section 3); the
+              &quot;IE &lt;Family&gt;&quot; the Text panel lists is a CSS family alias, not a rename
+              of the file. The licence text accompanies the font at /fonts/OFL-1.1.txt (OFL 1.1
+              section 2).
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Software packages</h2>
+      <p class="lede">
+        The 0 named in
+        <code>package.json</code> &rsquo;s <code>dependencies</code>, and the 19 they pull in
+        transitively. Build-only tooling in <code>devDependencies</code> is not distributed and is
+        not listed.
+      </p>
+      <table>
+        <caption>
+          Bundled packages
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Package</th>
+            <th scope="col">Why it is bundled</th>
+            <th scope="col">Upstream</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">
+              <span class="name">@imgly/background-removal</span
+              ><span class="meta">1.7.0 &middot; AGPL-3.0</span>
+            </th>
+            <td>
+              The Background tool’s cut-out. It is not MIT: the published package carries the GNU
+              Affero General Public License v3 in its LICENSE.md, which is a far stronger obligation
+              than attribution and is the reason the work is named here at all. It is imported
+              dynamically, so it is fetched only when the tool is used.
+            </td>
+            <td class="url">
+              <a href="https://github.com/imgly/background-removal-js"
+                >github.com/imgly/background-removal-js</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">@use-gesture/react</span
+              ><span class="meta">10.3.1 &middot; MIT</span>
+            </th>
+            <td>Pointer, wheel and pinch handling on the canvas.</td>
+            <td class="url">
+              <a href="https://github.com/pmndrs/react-use-gesture"
+                >github.com/pmndrs/react-use-gesture</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">comlink</span><span class="meta">4.4.2 &middot; Apache-2.0</span>
+            </th>
+            <td>
+              Declared as a runtime dependency but referenced by no module in src/ at the time of
+              writing, so it contributes nothing to the bundle. It is listed because this table
+              records what package.json claims, and the build gate checks that claim in both
+              directions.
+            </td>
+            <td class="url">
+              <a href="https://github.com/GoogleChromeLabs/comlink"
+                >github.com/GoogleChromeLabs/comlink</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">fflate</span><span class="meta">0.8.3 &middot; MIT</span>
+            </th>
+            <td>Zip compression for the multi-size export and for session bundles.</td>
+            <td class="url">
+              <a href="https://github.com/101arrowz/fflate">github.com/101arrowz/fflate</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">idb</span><span class="meta">8.0.3 &middot; ISC</span>
+            </th>
+            <td>The promise wrapper around IndexedDB that the session store is built on.</td>
+            <td class="url">
+              <a href="https://github.com/jakearchibald/idb">github.com/jakearchibald/idb</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">jsPDF</span><span class="meta">4.2.1 &middot; MIT</span>
+            </th>
+            <td>Writes the PDF exports: the passport print sheet and the “PDF” export format.</td>
+            <td class="url">
+              <a href="https://github.com/parallax/jsPDF">github.com/parallax/jsPDF</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">onnxruntime-web</span><span class="meta">1.21.0 &middot; MIT</span>
+            </th>
+            <td>Runs the matting model in WebAssembly for the Background tool.</td>
+            <td class="url">
+              <a href="https://github.com/microsoft/onnxruntime"
+                >github.com/microsoft/onnxruntime</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">React</span><span class="meta">18.3.1 &middot; MIT</span>
+            </th>
+            <td>The UI runtime.</td>
+            <td class="url"><a href="https://react.dev">react.dev</a></td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">React DOM</span><span class="meta">18.3.1 &middot; MIT</span>
+            </th>
+            <td>The React renderer for the browser.</td>
+            <td class="url">
+              <a href="https://github.com/facebook/react">github.com/facebook/react</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">react-router-dom</span
+              ><span class="meta">6.30.6 &middot; MIT</span>
+            </th>
+            <td>The Hub and editor routes.</td>
+            <td class="url">
+              <a href="https://github.com/remix-run/react-router"
+                >github.com/remix-run/react-router</a
+              >
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">Zustand</span><span class="meta">5.0.15 &middot; MIT</span>
+            </th>
+            <td>The document and UI stores.</td>
+            <td class="url">
+              <a href="https://github.com/pmndrs/zustand">github.com/pmndrs/zustand</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">@babel/runtime</span><span class="meta">7.29.7 &middot; MIT</span>
+            </th>
+            <td>
+              Emitted helper functions inside jsPDF’s build. <span class="via">via jspdf</span>
+            </td>
+            <td class="url"><a href="https://github.com/babel/babel">github.com/babel/babel</a></td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">canvg</span><span class="meta">3.0.11 &middot; MIT</span>
+            </th>
+            <td>
+              An optional dependency of jsPDF, lazily imported for its SVG path. The app never asks
+              jsPDF to draw an SVG, so this chunk is never fetched at runtime — it is in the install
+              and therefore in the record. <span class="via">via jspdf</span>
+            </td>
+            <td class="url"><a href="https://github.com/canvg/canvg">github.com/canvg/canvg</a></td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">DOMPurify</span
+              ><span class="meta">3.4.15 &middot; MPL-2.0 OR Apache-2.0</span>
+            </th>
+            <td>
+              An optional dependency of jsPDF, lazily imported for its .html() path. Dual-licensed:
+              the MPL-2.0 file-level copyleft applies to DOMPurify’s own source and not to a work
+              that merely links it, but the choice has to be stated rather than assumed.
+              <span class="via">via jspdf</span>
+            </td>
+            <td class="url">
+              <a href="https://github.com/cure53/DOMPurify">github.com/cure53/DOMPurify</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">fast-png</span><span class="meta">6.4.0 &middot; MIT</span>
+            </th>
+            <td>PNG encode/decode inside jsPDF. <span class="via">via jspdf</span></td>
+            <td class="url">
+              <a href="https://github.com/emn178/pngjs">github.com/emn178/pngjs</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">html2canvas</span><span class="meta">1.4.1 &middot; MIT</span>
+            </th>
+            <td>
+              An optional dependency of jsPDF, lazily imported for its .html() path. The app renders
+              PDFs from canvas data and text, never from a DOM tree, so this chunk is never fetched.
+              <span class="via">via jspdf</span>
+            </td>
+            <td class="url">
+              <a href="https://github.com/niklasvh/html2canvas">github.com/niklasvh/html2canvas</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">lodash-es</span><span class="meta">4.18.1 &middot; MIT</span>
+            </th>
+            <td>
+              A dependency of @imgly/background-removal, which is imported with the Background tool.
+              <span class="via">via @imgly/background-removal</span>
+            </td>
+            <td class="url">
+              <a href="https://github.com/lodash/lodash">github.com/lodash/lodash</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">ndarray</span><span class="meta">1.0.19 &middot; MIT</span>
+            </th>
+            <td>
+              A dependency of @imgly/background-removal.
+              <span class="via">via @imgly/background-removal</span>
+            </td>
+            <td class="url">
+              <a href="https://github.com/scijs/ndarray">github.com/scijs/ndarray</a>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">
+              <span class="name">zod</span><span class="meta">3.25.76 &middot; MIT</span>
+            </th>
+            <td>
+              A dependency of @imgly/background-removal.
+              <span class="via">via @imgly/background-removal</span>
+            </td>
+            <td class="url">
+              <a href="https://github.com/colinhacks/zod">github.com/colinhacks/zod</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Where this list comes from</h2>
+      <p>
+        The table is declared in <code>src/lib/licenses.ts</code>. Three checks keep it honest, and
+        all three fail rather than warn:
+      </p>
+      <ul>
+        <li>
+          Every name in <code>package.json</code>&rsquo;s <code>dependencies</code> must have an
+          entry, checked by <code>src/components/ui/licenses.test.ts</code> and by
+          <code>npm run assets:check</code>. Adding a dependency without a licence entry fails the
+          build.
+        </li>
+        <li>
+          Every font in <code>models.lock.json</code> must have an entry whose licence matches the
+          lock. The licence strings are copied from the lock rather than retyped, so they cannot
+          drift from the manifest the build already verifies.
+        </li>
+        <li>
+          Every entry in this page. A work that reaches the table but not this document is a test
+          failure, so the user-facing list cannot lag the declaration.
+        </li>
+      </ul>
+      <p>
+        The machine-readable licence texts ship with the fonts, which is what OFL &sect;2 asks for:
+        <a href="./fonts/OFL-1.1.txt">OFL 1.1</a> and
+        <a href="./fonts/Apache-2.0.txt">Apache 2.0</a>.
+      </p>
+
+      <footer>
+        <p>
+          <a href="./">Interactive Image Editor</a> &middot; this project&rsquo;s own code is MIT
+          licensed.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
