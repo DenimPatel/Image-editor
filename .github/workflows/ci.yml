@@ -137,6 +137,11 @@ jobs:
           # It never silently passes. The matting run is off because it fetches
           # ~42 MB from the imgly CDN; opt in with E2E_MATTING=1 by hand.
           E2E_MATTING: '0'
+          # `pw:webserver` logs every readiness probe — the URL requested, the
+          # status that came back, and the connection error if there was one.
+          # Without it a web-server timeout is a bare `Error:` with no cause,
+          # which is the failure mode this gate actually had.
+          DEBUG: pw:webserver
         run: npx playwright test --project=${{ matrix.project }}
       - name: Runtime performance budget
         # The e2e gate has already asserted `evaluateBudget` in the browser; this

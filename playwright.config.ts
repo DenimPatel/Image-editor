@@ -84,11 +84,29 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
+    // `--host 127.0.0.1`, not Vite's default of `localhost`.
+    //
+    // The default makes the listening socket depend on how `localhost` resolves:
+    // Node binds whichever address `dns.lookup` hands back first, so on a runner
+    // whose resolver prefers `::1` the server answers `[::1]:5317` and the
+    // readiness probe below — a plain `127.0.0.1` request — is refused forever.
+    // That failure mode is silent: the process stays up, so Playwright reports
+    // `Timed out waiting 120000ms from config.webServer` and nothing else, and
+    // the only way to tell it from a server that simply never started is to see
+    // the banner, which is the next line.
+    //
+    // An explicit address makes both ends of the probe the same literal, so
+    // there is no resolution step left to disagree about.
+    command: `npm run dev -- --host 127.0.0.1 --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    stdout: 'ignore',
+    // `pipe`, not `ignore`. A cold start of this dev server is ~0.6 s, so a
+    // 120 s timeout means the server did not come up as configured rather than
+    // that it was slow — and Vite's banner (ready time, resolved URL, the port
+    // it actually took) is the only record of that. With `stdout: 'ignore'` the
+    // one CI signal was an error with no cause attached to it.
+    stdout: 'pipe',
     stderr: 'pipe',
   },
 })
