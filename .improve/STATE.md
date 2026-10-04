@@ -23,10 +23,10 @@ Verified commands are in `REPO_PROFILE.md`; the gate baseline is in `.improve/re
 
 ## Phase
 
-**Phase 3 — Backlog Critic.** Recon is complete: five reports in `.improve/reports/`,
-`REPO_PROFILE.md`, and 30 baseline screenshots in `.improve/artifacts/baseline/`.
-`FEATURES.md` was merged from four parallel tier analysts at 125 items; the Critic is sharpening it
-in place. Next: commit the backlog, then start the loop on Tier 1.
+**Phase 4 — the improvement loop.** Recon complete (five reports in `.improve/reports/`,
+`REPO_PROFILE.md`, 30 baseline screenshots). Backlog committed at 122 items (`5afcf02`), now 126
+after the IMP-041 verifier filed four follow-ups. IMP-041 is shipped (`b957f90`); IMP-042 is in
+progress.
 
 ## The headline finding, in one line
 
@@ -59,14 +59,19 @@ confirmed against the code and in `desktop-17-more-menu.png`. Tier 1 leads with 
 
 ## Current item
 
-(none — Critic is editing `FEATURES.md`)
+**IMP-042 — mobile tool bar scroll affordance** (`IN-PROGRESS`, score 25, no deps). The 390px bottom
+tool bar fits 5 of 13 tools and clips "Background" to "Backgroun" with no scroll indication.
 
-## Next action on resume
+## Counters
 
-1. `cat .improve/STATE.md`
-2. Check `.improve/FEATURES.md` item count and that its header matches the file
-3. Commit `chore(improve): initial improvement backlog (N items)`
-4. Start the loop on the highest-priority Tier 1 `TODO` whose `Depends on` are `DONE`
+| Metric                              | Value |
+| ----------------------------------- | ----- |
+| Backlog items                       | 126   |
+| Items DONE                          | 1 (IMP-041) |
+| Items BLOCKED                       | 0     |
+| Items NEEDS-HUMAN                   | 6     |
+| Commits on branch                   | 3     |
+| Commits since last regression sweep | 0     |
 
 ## Loop mechanics that must be followed
 
@@ -74,9 +79,28 @@ confirmed against the code and in `desktop-17-more-menu.png`. Tier 1 leads with 
   state files. Never `git add -A`.
 - Commit message format: `<type>(<scope>): <title> [IMP-###]` then `Why:` / `What:` / `Verified:` /
   `Backlog:` lines. Conventional types: feat, fix, docs, test, perf, refactor, style, chore, ci, a11y.
-- After each commit, `git notes add -m "<verifier summary>" HEAD`.
+- After each commit: `git notes add -m "<verifier summary>" HEAD` — note `git notes add` takes **no
+  `-q` flag**; that mistake cost one retry on IMP-041.
 - MAX_ATTEMPTS 3. On a third failure, `git restore <paths>` the item's files, mark `BLOCKED`.
 - REGRESSION_EVERY 10 commits. Refill when open TODOs drop below 20.
+
+## Queue after IMP-042 (verify each `Depends on` before picking)
+
+| Score | Item | Deps |
+|---|---|---|
+| 25 | IMP-042 mobile tool bar scroll affordance | none |
+| 12.5 | IMP-054 bottom-sheet detent keyboard route | none |
+| 12.5 | IMP-053 put the exit path within reach at 390px | IMP-042 |
+| 12.5 | IMP-114 recipe to a shareable file | none |
+| 12 | IMP-141 crop readout one line at textScale xlarge | IMP-041 **DONE** |
+| 12 | IMP-019 e2e: the changing-image journey | IMP-001, IMP-005, IMP-006 |
+| 10 | IMP-002 confirm before replacing a doc that has edits | none |
+| 10 | IMP-140 fixed error panel occludes crop handles on mobile | none |
+| 10 | IMP-001 "New image" action in the More menu | IMP-002, IMP-005 |
+
+**The operator's headline fix is IMP-001 + IMP-002 + IMP-005 + IMP-006 (+ IMP-019 for its e2e case).**
+IMP-002, IMP-005 and IMP-006 are all dependency-free or near-free; do them as a block so the headline
+lands whole rather than shipping a "New image" button that can silently destroy unsaved work.
 
 ## Stop conditions
 
