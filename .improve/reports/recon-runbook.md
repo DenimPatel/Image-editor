@@ -293,3 +293,20 @@ Baseline-diff rules for verifiers:
 - A `parity.test.ts` timeout under load → not a failure; re-run it alone.
 - e2e inventory count moving is expected when e2e cases are added; a _unit_ count moving
   with no test files added is not.
+
+---
+
+## CORRECTION (orchestrator, 2026-10-04) — FAIL-1 is STALE, do not believe it
+
+The "exactly one gate is red" finding above is **obsolete**. It named `.improve/STATE.md` as the
+prettier offender; that was fixed in commit **`676b733`** by adding `.improve/` to `.prettierignore`.
+
+**Verified after that commit, by two independent agents:**
+`npx prettier --check .` -> exit 0. `npm test` -> exit 0. `npm run typecheck` -> exit 0.
+`npm run lint` -> exit 0. `npm run build` -> exit 0. `npm run test:coverage` -> exit 0
+(`src/pages/**` = 63.0 / 51.3 / 50.9 / 60.9 vs thresholds 60 / 48 / 47 / 57 — GREEN, contradicting
+`AGENTS.md`'s claim that this gate is RED).
+
+**THE PRE-EXISTING-FAILURE LIST IS EMPTY.** Any verifier who sees a failure must treat it as new
+unless it is one of: a `src/render/parity.test.ts` timeout under concurrent load (re-run alone), or
+Vite HMR console noise in the browser when another process is editing `src/`.
