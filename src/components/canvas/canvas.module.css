@@ -3,12 +3,26 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
+  /* A column: the area the image is fitted into, then the crop readout under it.
+     Every child used to be absolutely positioned, so the centring below it was
+     inert; the stage now takes the room and the readout takes its own row. */
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   overflow: hidden;
   background: var(--ie-canvas-bg);
   touch-action: none;
+}
+/* The box the image and every overlay over it are fitted into. `useRenderLoop`
+   appends the canvas here and `CropOverlay` fills it, so the two are measured
+   from the same element and a crop box cannot end up a few pixels off the
+   photograph it is drawn on. The readout is *not* inside it, which is the point:
+   the readout used to be painted over the bottom-centre of the frame, on top of
+   the `s` handle and the ring a keyboard user gets for focusing it. */
+.canvasStage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 @media (min-width: 900px) {
@@ -104,6 +118,27 @@
   z-index: calc(var(--z-canvas) + 1);
   pointer-events: none;
 }
+/* The crop readout, laid out below `.canvasStage` and therefore outside the box
+   the image is fitted into. One wrapping row rather than a stack: on a 390px
+   phone the canvas region is 237px tall, and the readout is a third of it if it
+   takes two lines. The buttons and the dimensions sit beside each other and only
+   wrap — onto the `exports …` suffix, which is the only part that grows — when
+   the row cannot hold them. */
+.cropReadout {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  /* The buttons inside are interactive; the row itself is not, so the caption
+     does not swallow a press aimed at the photograph beside it. */
+  pointer-events: none;
+}
+.cropReadout button {
+  pointer-events: auto;
+}
 .imageFrame {
   position: absolute;
   top: 50%;
@@ -177,6 +212,17 @@
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.25);
 }
+/* The ring is drawn *inside* the handle's own box, not 4px outside it as
+   `base.css` draws it everywhere else. An outline is always painted outside its
+   element, which put the ring in the band of photograph where the readout used
+   to be painted — so on the one handle the readout straddled, the indicator was
+   under the caption as well as the handle. Insetting it cannot be covered by a
+   neighbour, costs nothing but the 7px of transparent margin `.handle::after`
+   already leaves, and the 3px matches what the layer grips draw. */
+.handle:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
 .handleNw {
   left: -14px;
   top: -14px;
@@ -210,10 +256,10 @@
   color: rgba(255, 255, 255, 0.8);
 }
 .cropDimensions {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* A row of the readout's own rather than an absolutely positioned caption over
+     the frame: `.canvas` lays the readout out below `.canvasStage`, so the frame
+     — and the `s` handle that straddles its bottom edge — is fitted above this
+     line and nothing here can cover it. */
   background: rgba(0, 0, 0, 0.6);
   color: var(--ie-on-scrim);
   border-radius: var(--radius-xs);

@@ -1,5 +1,6 @@
 import { useEffect, useState, type RefObject } from 'react'
 import { loadCaps } from '../gl/caps'
+import { cropFrameFit } from '../lib/crop/frameFit'
 import { recordDiagnostic, setDiagnosticEngine } from '../lib/diagnostics'
 import { useFlagState } from '../lib/flags'
 import { createDoc } from '../model/defaults'
@@ -312,11 +313,11 @@ export function useRenderLoop(
     const unsubscribeUi = useUiStore.subscribe(schedule)
 
     const applyLayout = (output: Size, viewport: Viewport) => {
-      const availableW = Math.max(1, containerSize.width - 32)
-      const availableH = Math.max(1, containerSize.height - 32)
-      const fit = Math.min(availableW / output.width, availableH / output.height)
-      const displayW = Math.max(1, output.width * fit)
-      const displayH = Math.max(1, output.height * fit)
+      // The same fit the crop overlay draws its frame with, from the same
+      // function: the overlay's box is in whole-frame coordinates, so a canvas
+      // and an overlay fitted a single pixel differently put the crop handles on
+      // the wrong pixels rather than merely a few pixels out.
+      const { width: displayW, height: displayH } = cropFrameFit(output, containerSize)
       presentation.style.width = `${displayW}px`
       presentation.style.height = `${displayH}px`
       presentation.style.transform = `translate(-50%, -50%) translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`

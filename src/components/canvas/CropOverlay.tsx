@@ -12,6 +12,7 @@ import {
   rectForHandleDrag,
   type CropHandle,
 } from '../../lib/crop/geometry'
+import { cropFrameFit } from '../../lib/crop/frameFit'
 import { cropPixelReadout } from '../../lib/crop/readout'
 import { PassportGuides } from './PassportGuides'
 import { SafeAreaOverlay } from './SafeAreaOverlay'
@@ -362,15 +363,110 @@ function PerspectiveCorner({
 }
 
 /**
+ * The crop readout: the two overlay buttons and the live dimensions, laid out
+ * **below** the area the image is fitted into rather than over it.
+ *
+ * It is a sibling of `.canvasStage` and not a child of the overlay because the
+ * overlay fills the stage, and the stage is the box `useRenderLoop` fits the
+ * canvas to. Anything drawn inside it lands on the photograph and on the crop
+ * handles: the readout used to be painted over the bottom-centre of the frame,
+ * which put the `s` handle — and the ring focusing it draws — under a caption, so
+ * a press aimed at the bottom edge of the crop box answered to a caption. Moving
+ * it out of the frame is the only fix, because raising it above the frame changes
+ * paint order and not the overlap. `e2e/journey.crop.spec.ts` measures the two
+ * rectangles in a browser; jsdom lays nothing out.
+ *
+ * `perspectiveOn` is owned by `EditorCanvas` rather than by the overlay so both
+ * halves of this pair can be siblings of one box; the toggle that changes it is
+ * in the readout, and the quad it draws is in the overlay.
+ */
+export function CropReadout({
+  perspectiveOn,
+  onPerspective,
+}: {
+  perspectiveOn: boolean
+  onPerspective: (on: boolean) => void
+}) {
+  const doc = useDocStore((state) => state.present)
+  const perspective = useDocStore((state) => state.present.geometry.perspective)
+  // The crop's own size in source pixels, not in post-resize export pixels, and
+  // the export size reported separately (D5-F09).
+  const readout = cropPixelReadout(doc)
+
+  return (
+    <div className={styles.cropReadout}>
+      <button
+        type="button"
+        className={styles.overlayButton}
+        style={OVERLAY_BUTTON}
+        onClick={() => setCrop(FULL_CROP)}
+      >
+        Reset crop
+      </button>
+      <button
+        type="button"
+        className={styles.overlayButton}
+        style={{
+          ...OVERLAY_BUTTON,
+          ...(perspectiveOn
+            ? {
+                background: 'color-mix(in srgb, var(--ie-accent-bright) 90%, transparent)',
+                color: 'var(--on-accent-bright)',
+              }
+            : {}),
+        }}
+        aria-pressed={perspectiveOn}
+        title="Pull a corner to straighten a photo shot at an angle"
+        onClick={() => onPerspective(!perspectiveOn)}
+      >
+        Perspective
+      </button>
+      {perspectiveOn && (
+        <button
+          type="button"
+          className={styles.overlayButton}
+          style={OVERLAY_BUTTON}
+          onClick={resetPerspective}
+          disabled={!perspectiveWarped(perspective)}
+        >
+          Reset perspective
+        </button>
+      )}
+      {/* "Perspective" was a word with no referent anywhere in the product: a
+          first-time reader had a toggle and a photo and no way to find out
+          what pressing it wanted of them. It is not a stub — dragging a corner
+          genuinely warps the frame — so the honest thing is to say what it does
+          and what it costs. Text content rather than `title` alone, because a
+          `title` is not an accessible name and a hover-only sentence reaches
+          nobody on a phone. */}
+      {perspectiveOn && (
+        <p className={styles.overlayHint} style={OVERLAY_HINT}>
+          Drag a corner to correct a photo shot at an angle — its straight lines come back parallel.
+          Nothing is detected for you, and the warp is baked into the exported pixels.
+        </p>
+      )}
+      <div className={styles.cropDimensions}>
+        {readout.pixels}
+        {readout.ratio !== '—' ? ` · ${readout.ratio}` : ''}
+        {readout.output !== readout.pixels ? ` · exports ${readout.output}` : ''}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Interactive crop box over the full straightened frame. Rendering during
  * crop deliberately ignores the committed crop (handled by useRenderLoop), so
  * the box can be dragged freely; the committed values are normalized and are
  * the exact numbers the renderer and export consume.
+ *
+ * The frame is fitted with `cropFrameFit`, which `useRenderLoop` uses for the
+ * canvas element out of the same box, so the crop box is drawn on the pixels it
+ * is a crop of rather than near them.
  */
-export function CropOverlay() {
+export function CropOverlay({ perspectiveOn }: { perspectiveOn: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ width: 320, height: 320 })
-  const [perspectiveOn, setPerspectiveOn] = useState(false)
   const crop = useDocStore((state) => state.present.geometry.crop)
   const aspectLock = useDocStore((state) => state.present.geometry.aspectLock)
   const perspective = useDocStore((state) => state.present.geometry.perspective)
@@ -391,11 +487,9 @@ export function CropOverlay() {
 
   const fullDoc = useMemo(() => ({ ...doc, geometry: { ...doc.geometry, crop: FULL_CROP } }), [doc])
   const output = effectiveOutputSize(fullDoc)
-  const availableW = Math.max(1, containerSize.width - 32)
-  const availableH = Math.max(1, containerSize.height - 32)
-  const fitScale = Math.min(availableW / output.width, availableH / output.height)
-  const displayW = Math.max(1, output.width * fitScale)
-  const displayH = Math.max(1, output.height * fitScale)
+  const fit = cropFrameFit(output, containerSize)
+  const displayW = fit.width
+  const displayH = fit.height
   const zoom = viewport.scale
   const box = {
     left: crop.x * displayW,
@@ -423,10 +517,6 @@ export function CropOverlay() {
     },
     onEnd: () => useDocStore.getState().endInteraction(),
   })
-
-  // The crop's own size in source pixels, not in post-resize export pixels, and
-  // the export size reported separately (D5-F09).
-  const readout = cropPixelReadout(doc)
 
   return (
     <div className={styles.overlay} ref={rootRef}>
@@ -471,15 +561,15 @@ export function CropOverlay() {
           </div>
         ))}
         {/* Both overlays are percentages of the frame that gets exported, so
-            they are told the crop rect instead of inheriting the whole image
-            frame these are positioned against (D5-F10). */}
+              they are told the crop rect instead of inheriting the whole image
+              frame these are positioned against (D5-F10). */}
         <SafeAreaOverlay preset={safeArea} crop={crop} />
         {doc.passport && <PassportGuides specId={doc.passport.specId} crop={crop} />}
         {perspectiveOn && (
           <>
             {/* The quad in normalized frame units, so one viewBox covers any
-                aspect: `non-scaling-stroke` keeps the line 1.5 px whatever the
-                frame's proportions are. */}
+                  aspect: `non-scaling-stroke` keeps the line 1.5 px whatever the
+                  frame's proportions are. */}
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
@@ -511,77 +601,6 @@ export function CropOverlay() {
             ))}
           </>
         )}
-      </div>
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 40,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          pointerEvents: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-          <button
-            type="button"
-            className={styles.overlayButton}
-            style={OVERLAY_BUTTON}
-            onClick={() => setCrop(FULL_CROP)}
-          >
-            Reset crop
-          </button>
-          <button
-            type="button"
-            className={styles.overlayButton}
-            style={{
-              ...OVERLAY_BUTTON,
-              ...(perspectiveOn
-                ? {
-                    background: 'color-mix(in srgb, var(--ie-accent-bright) 90%, transparent)',
-                    color: 'var(--on-accent-bright)',
-                  }
-                : {}),
-            }}
-            aria-pressed={perspectiveOn}
-            title="Pull a corner to straighten a photo shot at an angle"
-            onClick={() => setPerspectiveOn((on) => !on)}
-          >
-            Perspective
-          </button>
-          {perspectiveOn && (
-            <button
-              type="button"
-              className={styles.overlayButton}
-              style={OVERLAY_BUTTON}
-              onClick={resetPerspective}
-              disabled={!perspectiveWarped(perspective)}
-            >
-              Reset perspective
-            </button>
-          )}
-        </div>
-        {/* "Perspective" was a word with no referent anywhere in the product: a
-            first-time reader had a toggle and a photo and no way to find out
-            what pressing it wanted of them. It is not a stub — dragging a corner
-            genuinely warps the frame — so the honest thing is to say what it does
-            and what it costs. Text content rather than `title` alone, because a
-            `title` is not an accessible name and a hover-only sentence reaches
-            nobody on a phone. */}
-        {perspectiveOn && (
-          <p className={styles.overlayHint} style={OVERLAY_HINT}>
-            Drag a corner to correct a photo shot at an angle — its straight lines come back
-            parallel. Nothing is detected for you, and the warp is baked into the exported pixels.
-          </p>
-        )}
-      </div>
-      <div className={styles.cropDimensions}>
-        {readout.pixels}
-        {readout.ratio !== '—' ? ` · ${readout.ratio}` : ''}
-        {readout.output !== readout.pixels ? ` · exports ${readout.output}` : ''}
       </div>
     </div>
   )

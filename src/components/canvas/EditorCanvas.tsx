@@ -1,5 +1,5 @@
 import { useGesture } from '@use-gesture/react'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { SHEET_HEIGHTS } from '../controls/sheetHeights'
 import { useIsInspector } from '../ui/useMediaQuery'
 import { createDrawLayer, defaultTransform, isDraggableLayer } from '../../features/layers/factory'
@@ -10,7 +10,7 @@ import { getDoc, useDocStore } from '../../store/docStore'
 import { useUiStore } from '../../store/uiStore'
 import { CompareGlyph } from '../ui/icons'
 import { CompareBadge } from './CompareBadge'
-import { CropOverlay } from './CropOverlay'
+import { CropOverlay, CropReadout } from './CropOverlay'
 import { LayerTransformOverlay } from './transformHandles'
 import styles from './canvas.module.css'
 
@@ -39,6 +39,19 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
   const drawLayerId = useRef<string | null>(null)
   const movingLayerId = useRef<string | null>(null)
   const moveGrabOffset = useRef<{ dx: number; dy: number } | null>(null)
+  // The perspective quad's toggle lives in the readout and the quad lives in the
+  // overlay, and the two have to be *siblings* of the box the image is fitted into:
+  // painted over it, the readout covers the bottom edge of the crop box and the `s`
+  // handle with it. So the mode belongs here rather than inside either of them.
+  // Closing the tool closes it, as unmounting the overlay did — adjusted here rather
+  // than in an effect, which would be a second render for a value that is about to
+  // be false anyway.
+  const [perspectiveOn, setPerspectiveOn] = useState(false)
+  const [perspectiveTool, setPerspectiveTool] = useState(activeTool)
+  if (perspectiveTool !== activeTool) {
+    setPerspectiveTool(activeTool)
+    if (perspectiveOn) setPerspectiveOn(false)
+  }
 
   const pointFromEvent = useCallback(
     (clientX: number, clientY: number) => {
@@ -217,11 +230,11 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
    *
    * A margin rather than an inset because `.canvas` is the flex item every one
    * of those consumers already measures: `useRenderLoop` fits the output into
-   * this box, and both `CropOverlay` and `LayerTransformOverlay` observe their
-   * own overlay root, which fills it. One number on one element, and the
-   * pixels, the crop box and the grips all move together. Shrinking it in the
-   * stylesheet instead would need the same number in three places and would
-   * drift from `SHEET_HEIGHTS` the first time a detent changed.
+   * `.canvasStage`, and both `CropOverlay` and `LayerTransformOverlay` observe
+   * their own overlay root, which fills that same stage. One number on one
+   * element, and the pixels, the crop box and the grips all move together.
+   * Shrinking it in the stylesheet instead would need the same number in three
+   * places and would drift from `SHEET_HEIGHTS` the first time a detent changed.
    *
    * `peek` is the detent that makes the canvas roomiest, which is the point of
    * it: a long panel at `large` leaves a sliver, and dragging the sheet down is
@@ -231,14 +244,20 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
     activeTool !== null && !isInspector ? { marginBottom: SHEET_HEIGHTS[sheetDetent] } : undefined
 
   return (
-    <div className={styles.canvas} style={sheetInset} ref={containerRef}>
-      <div
-        className={styles.gestureLayer}
-        {...gesture}
-        onDoubleClick={() => useUiStore.getState().resetViewport()}
-      />
-      {activeTool === 'crop' && <CropOverlay />}
-      {activeTool !== 'crop' && <LayerTransformOverlay />}
+    <div className={styles.canvas} style={sheetInset}>
+      {/* `.canvasStage` is the box `useRenderLoop` appends the canvas to and the
+          overlays fill, so the image and the crop box are fitted from one
+          measurement. `containerRef` is here rather than on `.canvas` because the
+          crop readout below takes a row of `.canvas` for itself. */}
+      <div className={styles.canvasStage} ref={containerRef}>
+        <div
+          className={styles.gestureLayer}
+          {...gesture}
+          onDoubleClick={() => useUiStore.getState().resetViewport()}
+        />
+        {activeTool === 'crop' && <CropOverlay perspectiveOn={perspectiveOn} />}
+        {activeTool !== 'crop' && <LayerTransformOverlay />}
+      </div>
       <button
         type="button"
         className={styles.compareToggle}
@@ -249,6 +268,9 @@ export function EditorCanvas({ source }: { source: ImageBitmap | null }) {
         {compareHeld ? 'Editing' : 'Compare'}
       </button>
       {compareHeld && <CompareBadge />}
+      {activeTool === 'crop' && (
+        <CropReadout perspectiveOn={perspectiveOn} onPerspective={setPerspectiveOn} />
+      )}
     </div>
   )
 }

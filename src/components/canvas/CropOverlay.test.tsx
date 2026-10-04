@@ -1,11 +1,11 @@
-import { act } from 'react'
+import { act, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDoc } from '../../model/defaults'
 import { setCrop } from '../../store/actions'
 import { useDocStore } from '../../store/docStore'
 import { createHarness, resetStores } from '../../store/testHarness'
 import { useUiStore } from '../../store/uiStore'
-import { CropOverlay } from './CropOverlay'
+import { CropOverlay, CropReadout } from './CropOverlay'
 
 // jsdom has no ResizeObserver, and the overlay sizes its box from one.
 class NoopResizeObserver {
@@ -15,6 +15,23 @@ class NoopResizeObserver {
 }
 if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver
+}
+
+/**
+ * The Crop tool as `EditorCanvas` lays it out: the box inside the stage, and the
+ * readout as its *sibling*. Mirroring that here rather than rendering the two
+ * halves apart is what keeps this file honest about the arrangement — the readout
+ * is outside the overlay because the overlay is the box the image is fitted into,
+ * and the reason is in `CropReadout`'s own comment.
+ */
+function CropTool() {
+  const [perspectiveOn, setPerspectiveOn] = useState(false)
+  return (
+    <>
+      <CropOverlay perspectiveOn={perspectiveOn} />
+      <CropReadout perspectiveOn={perspectiveOn} onPerspective={setPerspectiveOn} />
+    </>
+  )
 }
 
 const harness = createHarness()
@@ -63,7 +80,7 @@ beforeEach(() => {
   resetStores()
   loadDoc()
   act(() => {
-    harness.render(<CropOverlay />)
+    harness.render(<CropTool />)
   })
 })
 
@@ -75,7 +92,7 @@ describe('D5-F09: the readout is the crop in source pixels, and the export besid
   it('reports the source pixels of the crop, not the post-resize export', () => {
     loadDoc({ output: { resize: { mode: 'width', width: 640 } } })
     act(() => {
-      harness.render(<CropOverlay />)
+      harness.render(<CropTool />)
     })
     const text = harness.container.textContent ?? ''
     expect(text).toContain('1600 × 900 px')
@@ -101,6 +118,57 @@ describe('D5-F09: the readout is the crop in source pixels, and the export besid
   })
 })
 
+describe('IMP-041: the readout sits beside the crop box, not on top of it', () => {
+  // jsdom computes no layout, so it cannot say the two boxes miss each other —
+  // `e2e/journey.crop.spec.ts` measures that in a real engine. What it *can* say is
+  // the structure that makes it true: the overlay *is* the box the image is fitted
+  // into, so the readout is a sibling of it and not a descendant, and there is no
+  // arrangement of the two that puts a caption over the `s` handle again.
+  const readoutEl = () =>
+    Array.from(harness.container.querySelectorAll('div')).find((node) =>
+      node.className.includes('cropDimensions'),
+    ) as HTMLElement | undefined
+  const overlayEl = () =>
+    harness.container.querySelector('[class*="imageFrame"]')!.parentElement as HTMLElement
+
+  it('keeps the readout out of the subtree the crop box and its handles are drawn in', () => {
+    const readout = readoutEl()!
+    expect(readout).toBeDefined()
+    expect(overlayEl().contains(readout)).toBe(false)
+    expect(overlayEl().contains(handle('s'))).toBe(true)
+    // Siblings, the arrangement `EditorCanvas` builds: `.canvasStage` holds the
+    // overlay, `.cropReadout` holds the line, and neither contains the other.
+    expect(readout.parentElement!.parentElement).toBe(overlayEl().parentElement)
+  })
+
+  it('keeps the two overlay buttons in the readout row, with their names', () => {
+    const row = readoutEl()!.parentElement!
+    expect(row.className).toContain('cropReadout')
+    for (const label of ['Reset crop', 'Perspective']) {
+      const node = Array.from(row.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent === label,
+      )
+      expect(node, `${label} is not in the readout row`).toBeDefined()
+    }
+  })
+
+  it('still reports the live dimensions, and updates them when the crop moves', () => {
+    expect(readoutEl()!.textContent).toContain('1600 × 900 px')
+    expect(readoutEl()!.textContent).toContain('16:9')
+    act(() => {
+      setCrop({ x: 0.25, y: 0, width: 0.5, height: 1 })
+    })
+    expect(readoutEl()!.textContent).toContain('800 × 900 px')
+  })
+
+  it('the Perspective toggle reaches both halves: the readout button and the quad', () => {
+    expect(harness.container.querySelector('polygon')).toBeNull()
+    click(button('Perspective'))
+    expect(harness.container.querySelector('polygon')).not.toBeNull()
+    expect(corner('top left')).not.toBeNull()
+  })
+})
+
 describe('D5-F10: the guides are drawn over the crop, not over the whole image', () => {
   it('hands the crop rect to the passport guides', () => {
     act(() => {
@@ -111,7 +179,7 @@ describe('D5-F10: the guides are drawn over the crop, not over the whole image',
       }))
     })
     act(() => {
-      harness.render(<CropOverlay />)
+      harness.render(<CropTool />)
     })
     // Without the crop prop the guides inherit `.imageFrame`, so they would be
     // a quarter of the way in and a quarter as wide as the crop box is.
@@ -129,7 +197,7 @@ describe('D5-F10: the guides are drawn over the crop, not over the whole image',
       setCrop({ x: 0.2, y: 0.2, width: 0.5, height: 0.5 })
     })
     act(() => {
-      harness.render(<CropOverlay />)
+      harness.render(<CropTool />)
     })
     const safe = harness.container.querySelector('[class*="safeAreaLabel"]')?.parentElement as
       HTMLElement | undefined

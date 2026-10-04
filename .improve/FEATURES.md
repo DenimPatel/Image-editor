@@ -723,7 +723,7 @@ Derived from `.improve/reports/recon-experience.md`, Lens 6 and Lens 2 of
 **1280 x 800** or **390 x 844**; jsdom computes no layout and is never offered as evidence.
 
 ### IMP-041 — Move the crop readout out of the crop frame
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** accessibility
 - **Type:** bug-fix
 - **Area / files:** `src/components/canvas/CropOverlay.tsx`, `src/components/canvas/canvas.module.css` (`.readout`), `src/components/tools/CropPanel.tsx`, evidence `.improve/artifacts/baseline/desktop-10-crop-readout-occludes-handle.png`, `.improve/artifacts/baseline/mobile-06-crop-sheet.png`
@@ -740,6 +740,26 @@ Derived from `.improve/reports/recon-experience.md`, Lens 6 and Lens 2 of
 - **Priority score:** 5 × 5 / 1 = **25**
 - **Notes:** `z-index` alone is not the fix — it changes paint order, not the overlap. The readout has to move out of the frame (dock it below the canvas or into the sheet). The recon records the handles themselves as correctly implemented (`role="slider"` + real `aria-label`s on all 8); this is a layout defect on top of a working implementation. Merged from deleted IMP-044, which asked for the same two measurements (overlap area and `elementFromPoint`); its self-report clause ("reverting the CSS makes the case fail") was dropped because a verifier cannot check it, and criterion 2 is the same measurement in the browser. Paths corrected from `src/components/editor/EditorCanvas.tsx`-style guesses to the real `src/components/canvas/`.
 
+**DONE — commit pending. Verified PASS.** The readout left the crop box entirely: `.canvas` is now a
+column whose first row (`.canvasStage`) is the one box both `useRenderLoop` and `CropOverlay` fit
+from, so overlap is structurally impossible rather than merely re-z-ordered. New pure module
+`src/lib/crop/frameFit.ts` (+ sibling test). Verifier measured, in a real browser at 1280x800 and
+390x844 on chromium AND webkit: overlap on `Crop s handle` **560 px^2 -> 0 px^2**, and 0 on all 8
+handles x 3 readout parts at both widths; focus ring now 3px inset vs 2px outset, sum 0; 0 px drift
+between canvas and crop frame. `elementFromPoint` assertions unsuppressed on both projects. Gates
+green: typecheck, lint, prettier, build, coverage; unit 3069 in 154 files; e2e 667 in 41 files; 141
+passed across the 9 touched specs. **The e2e case was proven to bite**: the verifier mutated the
+source to move the readout back over the handle and 4 assertions went red, then restored the file
+exactly (diffstat 485/120 before and after).
+
+**Cost, recorded honestly.** Fixing the occlusion shrank the crop preview: per-axis **-7.4% at
+1280px and -21% at 390px**, which is an **area cost of -14.9% desktop and -37.6% mobile**. The
+implementer's first design (space taken *inside* the overlay) desynchronised the preview from the
+canvas element and broke `journey.crop-preview.spec.ts`, which is why the readout had to leave the
+frame entirely. A mobile user loses a third of their preview area to fix a desktop overlap — IMP-139
+exists to claw that back. Follow-ups raised by the verifier: IMP-139 (recover mobile preview space),
+IMP-140 (the fixed "Recent problems" panel occluding the n/e/w handles at 390x844), IMP-141 (the
+readout wraps 2.4px over and doubles to 83px at `textScale: xlarge`).
 ### IMP-042 — Give the mobile tool bar a visible horizontal-scroll affordance and edge fade
 - **Status:** TODO
 - **Category:** responsiveness
@@ -2232,3 +2252,70 @@ or puts a colour-management claim in a comment.
 - **Depends on:** IMP-128
 - **Priority score:** 4 x 4 / 3 = 5.3
 - **Notes:** Split from the original IMP-128 by the Critic (six criteria at Effort L). The schema half stayed TODO because invariant 4 makes it mechanical; this half is the product decision and was already flagged by the analyst as "arguably NEEDS-HUMAN" — it is now flagged that way. Note `README.md` and `NOTICE` are untouched by either half: no licence obligation changes.
+
+### IMP-139 — Recover the mobile crop preview area lost to the IMP-041 readout
+- **Status:** TODO
+- **Category:** responsiveness
+- **Type:** improvement
+- **Area / files:** `src/components/canvas/canvas.module.css` (`.canvas`, `.canvasStage`), `src/components/canvas/EditorCanvas.tsx`, `src/components/canvas/CropOverlay.tsx`, `src/lib/crop/frameFit.ts`, evidence `.improve/artifacts/IMP-041/verify/mobile-390-crop-after.png`
+- **Intent:** IMP-041 fixed a real occlusion by moving the crop readout out of the crop frame, and the price was a 37.6% reduction in mobile preview AREA (21% per axis at 390x844). On a phone that is a large amount of the thing the user is actually cropping, paid to fix a defect that was worst on desktop. The space is recoverable without reintroducing the overlap.
+- **Acceptance criteria:**
+  1. At **390 x 844** with the Crop sheet at its default detent, the crop preview's rendered area is at least **10% larger** than the area measured at `.improve/artifacts/IMP-041/verify/mobile-390-crop-after.png`, measured with `boundingBox()` on the canvas stage.
+  2. The readout still has **zero** intersection area with all eight crop handles at both 390x844 and 1280x800 — the IMP-041 invariant must not regress.
+  3. `e2e/journey.crop.spec.ts` keeps its existing `elementFromPoint` assertions for `Crop s/n/e/w handle` green on chromium and webkit.
+  4. The mobile sheet detents in `sheetHeights.ts` are unchanged, and the image is still fully visible at every detent.
+- **Verification method:** `npm test`, plus a measurement in `e2e/journey.crop.spec.ts` (or a sibling case) logging the canvas-stage `boundingBox()` at 390x844 before and after. Screenshots to `.improve/artifacts/IMP-139/`. Run `npm run typecheck && npm run lint && npx prettier --check .`.
+- **Effort:** M  **Risk:** med
+- **Depends on:** IMP-041
+- **Priority score:** 4 x 4 / 2 = **8**
+- **Notes:** Raised by the IMP-041 verifier, which measured the per-axis shrink as -7.4% desktop / -21% mobile but the area cost as -14.9% / -37.6%. Do not attempt this by moving the readout back inside the crop frame; `crop-preview.spec.ts` fails there.
+
+### IMP-140 — Stop the fixed "Recent problems" panel from covering the crop handles on mobile
+- **Status:** TODO
+- **Category:** ux
+- **Type:** bug-fix
+- **Area / files:** `src/components/controls/Toast.tsx` (the bounded, versioned, user-clearable error list that outlives the toast), `src/components/canvas/CropOverlay.tsx`, evidence `.improve/artifacts/IMP-041/verify/mobile-390-crop-after.png`
+- **Intent:** The IMP-041 verifier measured that after any save error the fixed "Recent problems" panel occludes the `Crop n`, `Crop e` and `Crop w` handles by **504 px^2 at 390x844 in Chromium**, and `elementFromPoint` at their centres fails. This is a SECOND, pre-existing instance of exactly the occlusion class IMP-041 exists to eliminate, on the error path rather than the normal path. The IMP-041 e2e case has to call `dismissErrorLog()` to work around it, which is a smell, not a fix.
+- **Acceptance criteria:**
+  1. At **390 x 844** with the error list visible and the Crop sheet open, `document.elementFromPoint` at the centre of `Crop n handle`, `Crop e handle` and `Crop w handle` returns the handle or a descendant — never the error panel. Measured with `boundingBox()`, intersecting area 0 for all three.
+  2. The error list remains reachable, readable and dismissible by keyboard at 390x844; nothing is hidden in a way that removes the user's ability to read or clear an error.
+  3. The error list does not permanently reserve the space it occupies — dismissing it restores the full preview, and asserting that does not create a layout jump greater than 2px.
+  4. The workaround in the IMP-041 e2e case is **removed**, and that case still passes on chromium and webkit.
+- **Verification method:** `npm test`, plus a case in `e2e/journey.crop.spec.ts` that raises a save error, leaves the panel up, and asserts hit-testability of the three handles at 390x844. Screenshots to `.improve/artifacts/IMP-140/`. Run `npm run typecheck && npm run lint && npx prettier --check .`.
+- **Effort:** M  **Risk:** med
+- **Depends on:** none
+- **Priority score:** 4 x 5 / 2 = **10**
+- **Notes:** Raised by the IMP-041 verifier. Pre-existing, NOT introduced by IMP-041, and deliberately not fixed there because it is out of that item's scope. The `dismissErrorLog()` call in the IMP-041 e2e case is the smell to remove.
+
+### IMP-141 — Keep the crop readout on one line at large text scale
+- **Status:** TODO
+- **Category:** accessibility
+- **Type:** bug-fix
+- **Area / files:** `src/components/canvas/canvas.module.css` (the readout row introduced by IMP-041), `src/lib/appearance.ts` (`textScale`), `src/styles/scales.test.ts`
+- **Intent:** IMP-041's CSS comment and the verifier's measurements both assume the DEFAULT text scale. At `textScale: xlarge` the readout row wraps 2.4 px over its allotted width and doubles in height to 83 px, taking **28% more** of the phone preview — so the fix for the occlusion is itself occluded at a setting the app explicitly supports and that `AGENTS.md` invariant 7 protects.
+- **Acceptance criteria:**
+  1. At **390 x 844** with `textScale: xlarge`, the readout row is a single line and its height does not exceed its height at the default scale by more than the text-scale ratio implies; specifically it must not exceed **56 px**.
+  2. At `textScale: xlarge` the readout still shows the live pixel dimensions and aspect ratio, and `Reset crop` and `Perspective` remain operable with their current accessible names.
+  3. The readout still has zero intersection area with all eight crop handles at `textScale` of `default`, `large` and `xlarge`, at both 390x844 and 1280x800.
+  4. The appearance setting reaches the page as an `<html>` data-attribute; nothing about it enters `Doc`, history or IndexedDB (invariant 7).
+- **Verification method:** `npm test`; a case in `e2e/journey.crop.spec.ts` that sets `textScale` to `xlarge` via the appearance control at 390x844 and asserts the row height and the handle intersections. A static assertion may be added to `src/styles/scales.test.ts`. Screenshots to `.improve/artifacts/IMP-141/`. Run `npm run typecheck && npm run lint && npx prettier --check .`.
+- **Effort:** S  **Risk:** low
+- **Depends on:** IMP-041
+- **Priority score:** 3 x 4 / 1 = **12**
+- **Notes:** Raised by the IMP-041 verifier, which measured 2.4 px of wrap and an 83 px row at `textScale: xlarge`. Neither the IMP-041 CSS comment nor the verifier's acceptance run covered a non-default text scale.
+
+### IMP-142 — Replace the vacuous assertion in `frameFit.test.ts`
+- **Status:** TODO
+- **Category:** test
+- **Type:** test
+- **Area / files:** `src/lib/crop/frameFit.test.ts` (added by IMP-041)
+- **Intent:** The IMP-041 verifier found that the case asserting "same padding on both axes" cannot fail for the reason it names, so it documents an intent rather than pinning one. A test that cannot fail is the failure mode `docs/FEATURES.md` §1.2 was written to catch, and it is new code, so it is ours to fix now rather than inherited later.
+- **Acceptance criteria:**
+  1. Every case in `src/lib/crop/frameFit.test.ts` fails when the behaviour it names is broken — proven by mutation, not asserted. At least one case must be shown to go red under a deliberate change to `src/lib/crop/frameFit.ts`, which is then reverted exactly.
+  2. The file covers the axes the IMP-041 layout depends on: stage fitting, and the readout row reserving space without entering the crop frame.
+  3. `npm test` passes and the test count does not decrease.
+- **Verification method:** `npm test`; plus a documented mutation run recorded in `.improve/reports/verify-IMP-142.md`. Run `npm run typecheck && npm run lint && npx prettier --check .`.
+- **Effort:** S  **Risk:** low
+- **Depends on:** IMP-041
+- **Priority score:** 2 x 5 / 1 = **10**
+- **Notes:** Raised by the IMP-041 verifier. Non-blocking, but it is new code shipping with a test that does not bite, which is the same defect class as `e2e/a11y-measure.spec.ts`'s class-regex guards.

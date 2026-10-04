@@ -1,3 +1,4 @@
-# Append-only progress log: timestamp | item | result | commit
 2026-10-04T00:30Z | SETUP | branch improve/auto-20261004 from main@10ade26, pre-push guard, state dir | -
-2026-10-04T00:32Z | RECON | launched recon-journeys, recon-architecture, recon-runbook, recon-quality, recon-experience | -
+2026-10-04T01:28Z | RECON | 5 reports persisted: journeys(19 dead ends), architecture, runbook, quality(55 findings), experience(30 screenshots) | -
+2026-10-04T01:28Z | BACKLOG | FEATURES.md 125 -> 122 after Critic. 116 TODO, 6 NEEDS-HUMAN, 0 forward deps | 5afcf02
+2026-10-04T02:49Z | IMP-041 | DONE (crop readout moved out of the crop frame; overlap 560->0 px2 both widths, both engines; preview area cost -14.9% desktop / -37.6% mobile) | pending
