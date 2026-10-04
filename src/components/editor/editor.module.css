@@ -265,6 +265,36 @@
 .tabBar::-webkit-scrollbar {
   display: none;
 }
+/* The scroller says so, which is the whole of the affordance. `.chipRowMore` is
+   the same rule for the chip rows, off the same measurement: a mask rather than
+   a painted gradient, so it works in both themes without naming the chrome
+   colour, and so a fade never becomes the reason a tab cannot be pressed.
+
+   Both edges at once is ONE four-stop ramp, and the shape is the load-bearing
+   part. `mask-composite` defaults to `add`, which unions the layers' alpha, so
+   a two-item list of a leading fade and a trailing fade composites to a fully
+   opaque mask: the trailing layer's opaque body fills in the leading layer's
+   transparent start, the leading layer's body fills in the trailing layer's
+   transparent end, and the two edges stop fading at exactly the scroll positions
+   that are the only ones needing both. A single ramp has the same two edges and
+   nothing in between, and `calc(100% - 32px)` is where the plateau ends.
+   Measured per-pixel at 390x844, mid-scroll: two-item list, both edges delta 1
+   of 255 — no fade at all; this ramp, 76 left and 138 right. */
+.tabBarMoreEnd {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+}
+.tabBarMoreStart {
+  mask-image: linear-gradient(to right, transparent 0, #000 32px);
+}
+.tabBarMoreStart.tabBarMoreEnd {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 32px,
+    #000 calc(100% - 32px),
+    transparent 100%
+  );
+}
 .tab {
   display: flex;
   flex-direction: column;
@@ -610,6 +640,54 @@
 .helpPanel dd {
   margin: 0;
   color: var(--ie-ink-soft);
+}
+
+@media (max-width: 480px) {
+  /* A phone is the one width where thirteen tools cannot fit, so this is the
+     width where the bar has to behave like a scroller rather than like a row.
+
+     `proximity` rather than `mandatory`: a mandatory snap fights a drag that
+     stops 4px off a boundary, and this bar is dragged by a finger on glass.
+     `scroll-padding-inline` matches the bar's own leading inset, so a snapped
+     tab lands exactly where the padding puts the first one instead of a little
+     short of it.
+
+     The two metric changes are for one measurement, not for looks: at 390px the
+     fifth tab's right edge has to be inside the viewport, because the fade
+     covers the last 32px and whatever it covers is unreadable. At `roomy` +
+     `xlarge` text that edge sat at 409px and the sixth tab's at 413px, so the
+     word "Background" arrived as "Backgroun" and there was nothing at all
+     showing that the bar went on. Tightening the gap and the tab's own padding
+     moves them to 366px and 368px: the label is whole, and the sixth tab's
+     leading edge is now the thing the fade is saying something about. The floor
+     stays well over `--ie-tap`, and `flex: 0 0 auto` above still means no label
+     is ever narrower than the tab that holds it. */
+  .tabBar {
+    gap: 2px;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: calc(8px + var(--ie-safe-left));
+  }
+  .tab {
+    min-width: calc(54px * var(--density-factor));
+    padding: 4px 6px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (forced-colors: active) {
+  /* A mask is not a colour, so there is nothing to fade. The rule the fade
+     stands in for is a line, which is what forced-colors mode has. */
+  .tabBarMoreEnd,
+  .tabBarMoreStart,
+  .tabBarMoreStart.tabBarMoreEnd {
+    mask-image: none;
+  }
+  .tabBarMoreEnd {
+    border-right: 2px solid CanvasText;
+  }
+  .tabBarMoreStart {
+    border-left: 2px solid CanvasText;
+  }
 }
 
 @media (min-width: 900px) {

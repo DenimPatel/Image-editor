@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes } from 'react'
+import { useRef, type CSSProperties, type HTMLAttributes } from 'react'
+import { useScrollEdges } from '../../hooks/useScrollEdges'
 import styles from './controls.module.css'
 
 export type ChipOption<T extends string> = { value: T; label: string }
@@ -22,11 +23,12 @@ export type ChipOption<T extends string> = { value: T; label: string }
  * labels, so it cannot be a `ChipRow` with different options — and it used to
  * re-declare this whole shell to get one. That made a change to the fade a change
  * in two files, one of which was only correct until somebody checked the other.
- * The measurement lives here now; the class names do not, because each row's
- * chips are styled from a different module on purpose (see the header of
- * `tools/ratioChips.module.css`), and `controls.module.css` is not this file's to
- * restyle. So the shell takes both: `className` is the row's own box, and
- * `fadeClassName` is the one rule that says "there is more past this edge".
+ * The measurement lives in `useScrollEdges` now, shared with the tool tab bar;
+ * the class names do not, because each row's chips are styled from a different
+ * module on purpose (see the header of `tools/ratioChips.module.css`), and
+ * `controls.module.css` is not this file's to restyle. So the shell takes both:
+ * `className` is the row's own box, and `fadeClassName` is the one rule that says
+ * "there is more past this edge".
  */
 export function ChipRowShell({
   className,
@@ -35,36 +37,12 @@ export function ChipRowShell({
   ...rest
 }: HTMLAttributes<HTMLDivElement> & { fadeClassName?: string }) {
   const rowRef = useRef<HTMLDivElement>(null)
-  const [scrolledToEnd, setScrolledToEnd] = useState(true)
-  const [overflowing, setOverflowing] = useState(false)
-
-  useEffect(() => {
-    const row = rowRef.current
-    if (!row) return
-    const update = () => {
-      const max = row.scrollWidth - row.clientWidth
-      setOverflowing(max > 1)
-      setScrolledToEnd(max <= 1 || row.scrollLeft >= max - 1)
-    }
-    update()
-    // jsdom has no ResizeObserver, and a chip row that cannot measure itself
-    // must still render — the fade is an affordance, not a precondition.
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(update) : null
-    observer?.observe(row)
-    for (const child of Array.from(row.children)) observer?.observe(child)
-    if (!observer) window.addEventListener('resize', update)
-    row.addEventListener('scroll', update, { passive: true })
-    return () => {
-      observer?.disconnect()
-      if (!observer) window.removeEventListener('resize', update)
-      row.removeEventListener('scroll', update)
-    }
-  }, [children])
+  const { overflowing, afterEnd } = useScrollEdges(rowRef, children)
 
   return (
     <div
       className={`${className ?? ''}${
-        overflowing && !scrolledToEnd && fadeClassName ? ` ${fadeClassName}` : ''
+        overflowing && !afterEnd && fadeClassName ? ` ${fadeClassName}` : ''
       }`}
       role="group"
       ref={rowRef}

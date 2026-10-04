@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createHarness, resetStores } from '../../store/testHarness'
 import { TOOL_IDS, useUiStore } from '../../store/uiStore'
 import { ToolTabBar } from './ToolTabBar'
+import styles from './editor.module.css'
 
 const harness = createHarness()
 
@@ -85,5 +86,107 @@ describe('the tool tab bar', () => {
   it('claims "current", not "page" — no tab navigates anywhere', () => {
     tap('Text')
     expect(tab('Text')?.getAttribute('aria-current')).toBe('true')
+  })
+})
+
+/**
+ * The edges, given the geometry jsdom will not compute.
+ *
+ * The bar is a scroller and it hides its scrollbar, so a phone user has no way
+ * to know eight of thirteen tools are off-screen; at 390px the fifth tab's label
+ * was also cut mid-word by the edge. The fade is the affordance for the first
+ * and the tightened metrics for the second, and both are decided from these
+ * three numbers. Which edge is worth fading is `measureScrollEdges`' business and
+ * is pinned in `useScrollEdges.test.ts`; what this file owns is that the bar asks
+ * for the right one and puts it on the right edge.
+ *
+ * jsdom lays nothing out, so `scrollWidth` and `clientWidth` are 0 for every
+ * element — a test of "does this bar overflow" written against the DOM without
+ * giving it a geometry passes on a bar that overflows by 507px. The geometry
+ * itself is measured in `e2e/journey.mobile.spec.ts`.
+ */
+describe('the tool tab bar says when it scrolls', () => {
+  const nav = () => harness.container.querySelector('nav') as HTMLElement
+
+  /** A scroller of a known shape, then the scroll a thumb would leave behind. */
+  const measure = ({
+    client,
+    scroll,
+    left = 0,
+  }: {
+    client: number
+    scroll: number
+    left?: number
+  }) => {
+    const bar = nav()
+    Object.defineProperty(bar, 'clientWidth', { value: client, configurable: true })
+    Object.defineProperty(bar, 'scrollWidth', { value: scroll, configurable: true })
+    Object.defineProperty(bar, 'scrollLeft', { value: left, configurable: true, writable: true })
+    act(() => {
+      bar.dispatchEvent(new Event('scroll'))
+    })
+  }
+
+  const fades = () => ({
+    end: nav().classList.contains(styles.tabBarMoreEnd),
+    start: nav().classList.contains(styles.tabBarMoreStart),
+  })
+
+  it('fades the trailing edge on a bar that is wider than its box', () => {
+    expect(fades()).toEqual({ end: false, start: false })
+
+    measure({ client: 390, scroll: 897 })
+    expect(fades()).toEqual({ end: true, start: false })
+  })
+
+  it('fades neither edge once the last tool is in view', () => {
+    // A fade left on a bar scrolled to the end is a gradient across the last
+    // tab's own label, which is a different defect rather than a milder version
+    // of the one the fade exists to prevent.
+    measure({ client: 390, scroll: 897, left: 507 })
+    expect(fades()).toEqual({ end: false, start: true })
+  })
+
+  it('fades the leading edge too, once something is behind it', () => {
+    measure({ client: 390, scroll: 897, left: 250 })
+    expect(fades()).toEqual({ end: true, start: true })
+  })
+
+  it('fades nothing at a width where all thirteen fit', () => {
+    // The 1280px case, and the reason the fade is measured rather than written:
+    // a bar that needs no fade must not carry one.
+    measure({ client: 1280, scroll: 1092 })
+    expect(fades()).toEqual({ end: false, start: false })
+    measure({ client: 1280, scroll: 1092, left: 0 })
+    expect(fades()).toEqual({ end: false, start: false })
+  })
+
+  it('puts the affordance on the bar and adds no thirteenth-and-a-half control', () => {
+    // The fade is a mask on the row rather than a control of its own, so nothing
+    // new is in the accessibility tree and no Tab press lands on it. A button
+    // here would be a fourteenth tab.
+    measure({ client: 390, scroll: 897 })
+    expect(nav().querySelectorAll('button')).toHaveLength(TOOL_IDS.length)
+    expect(nav().children).toHaveLength(TOOL_IDS.length)
+    expect(Array.from(nav().children).every((node) => node.tagName === 'BUTTON')).toBe(true)
+  })
+
+  it('keeps the tab order the DOM order, which the fades do not touch', () => {
+    measure({ client: 390, scroll: 897, left: 250 })
+    expect(tabs().map((node) => node.textContent?.trim())).toEqual([
+      'Crop',
+      'Adjust',
+      'Looks',
+      'Retouch',
+      'Background',
+      'Text',
+      'Draw',
+      'Stickers',
+      'Redact',
+      'Frame',
+      'Layers',
+      'Passport',
+      'Export',
+    ])
   })
 })

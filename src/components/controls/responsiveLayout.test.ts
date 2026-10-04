@@ -56,6 +56,27 @@ function declaration(body: string, property: string): string {
   return match[1].trim()
 }
 
+/**
+ * One `@media` block and its body, stopping at the next one.
+ *
+ * Slicing to the end of the file — which two of the blocks below do — works only
+ * while the rule being looked for is the first of its selector in the remainder.
+ * A `@media (max-width: 480px)` override of `.tab` sits above a desktop
+ * `@media (min-width: 900px)` block that also has `.tab` rules in it, so
+ * `rule()` over a tail slice would answer with whichever came first in the file
+ * rather than the one inside the block under test.
+ */
+function media(css: string, condition: string): string {
+  const start = css.indexOf(`@media ${condition}`)
+  if (start < 0)
+    throw new Error(
+      `responsiveLayout.test.ts cannot find \`@media ${condition}\` in the stylesheet`,
+    )
+  const rest = css.slice(start)
+  const next = rest.slice(1).search(/@media /)
+  return next < 0 ? rest : rest.slice(0, next + 1)
+}
+
 describe('a panel never covers the chrome', () => {
   it('the sheet and its scrim resolve against the canvas region, not the viewport', () => {
     // `position: fixed` is the defect. With it, `bottom: 0` means the bottom of
@@ -383,6 +404,81 @@ describe('a tool tab is as wide as its own name', () => {
     // bar was the only one you could not read, while every other tab was hittable,
     // so a hit test alone would never have caught it.
     expect(declaration(rule(editor, '.tab'), 'flex')).toBe('0 0 auto')
+    expect(declaration(rule(editor, '.tab'), 'min-width')).toBe(
+      'calc(62px * var(--density-factor))',
+    )
+  })
+})
+
+/**
+ * The phone tool bar, and the one thing it is for.
+ *
+ * Thirteen tools do not fit in 390px, so below 480px the row is a scroller with a
+ * mask over each edge that has something behind it. That is the whole affordance,
+ * and it is worth exactly as much as the two numbers the fade covers: a 32px ramp
+ * over the end of the row makes whatever is under it unreadable, so the tab the
+ * fade lands on must not be the one whose name is being eaten.
+ *
+ * Which is why these are pinned. `gap: 2px`, `padding: 4px 6px` and the 54px
+ * floor inside the media query move "Background"'s right edge from 408.72px to
+ * 365.72px and the next tool's leading edge from 413px to 368px, at `roomy` +
+ * `xlarge` — the appearance the evidence screenshot was captured at, and the only
+ * one at which the base metrics fail at all. At the default appearance the base
+ * metrics already measure 356.77px, so a browser gate written at the default
+ * agrees with a stylesheet that has never heard of this change. The measurement
+ * that makes the claim is
+ * `e2e/journey.mobile.spec.ts › at roomy density and xlarge text the bar says so
+ * before it runs out of row`; these are the declarations it is standing on, and
+ * without them the media query could be deleted with nothing red.
+ *
+ * `gap: 2px` rather than `1px` and a 54px floor rather than 48px because both
+ * numbers are load-bearing in the other direction: `--ie-tap` is 44px, and the
+ * floor is what a finger has to land on.
+ */
+describe('the tool bar is a scroller below 480px', () => {
+  const phone = media(editor, '(max-width: 480px)')
+
+  it('snaps by proximity, not by mandate, and each tab is the thing it snaps to', () => {
+    expect(declaration(rule(phone, '.tabBar'), 'scroll-snap-type')).toBe('x proximity')
+    expect(declaration(rule(phone, '.tab'), 'scroll-snap-align')).toBe('start')
+    // `scroll-padding-inline` is deliberately *not* pinned here. It is
+    // `calc(8px + var(--ie-safe-left))`, which is a shorthand, so it sets
+    // `scroll-padding-right` from the *left* inset while the bar's own
+    // `padding-right` is `calc(8px + var(--ie-safe-right))` — on a device in
+    // landscape with a right inset, the last tab snaps a safe-area's width short
+    // of where the bar's padding puts it. Pinning a value that is known to be the
+    // wrong one of two is how a gate ends up defending a defect; see
+    // `.improve/reports/discovered-IMP-042.md`.
+  })
+
+  it('tightens its own metrics for the width where the metrics have to fit', () => {
+    expect(declaration(rule(phone, '.tabBar'), 'gap')).toBe('2px')
+    expect(declaration(rule(phone, '.tab'), 'min-width')).toBe('calc(54px * var(--density-factor))')
+    expect(declaration(rule(phone, '.tab'), 'padding')).toBe('4px 6px')
+  })
+
+  it('fades both edges with one four-stop ramp, not a two-item mask list', () => {
+    // `mask-composite` defaults to `add`, which unions the layers' alpha, so a
+    // list of a leading fade and a trailing fade is a fully opaque mask: the two
+    // edges fill in each other's transparent ends and neither fades at all,
+    // which is measured — a channel delta of 1 of 255 against the same row with
+    // the mask off, at every scroll position that is neither end. The four stops
+    // are the fix: both edges, and an opaque plateau between them.
+    const ramp = flat(declaration(rule(editor, '.tabBarMoreStart.tabBarMoreEnd'), 'mask-image'))
+    expect(ramp).toBe(
+      'linear-gradient( to right, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100% )',
+    )
+    // One `linear-gradient` in the whole declaration. A list would resolve to two
+    // and composite to nothing, and the shape assertion in
+    // `journey.mobile.spec.ts` counts exactly this many.
+    expect(ramp.match(/linear-gradient/g)).toHaveLength(1)
+  })
+
+  it('keeps the desktop bar at the metrics it has always had', () => {
+    // The block above is scoped by width and the base rules below are not, so if
+    // this ever returns `2px` or `calc(54px …)` the phone width has stopped being
+    // the only place the bar is tight.
+    expect(declaration(rule(editor, '.tabBar'), 'gap')).toBe('4px')
     expect(declaration(rule(editor, '.tab'), 'min-width')).toBe(
       'calc(62px * var(--density-factor))',
     )

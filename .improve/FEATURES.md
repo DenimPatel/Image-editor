@@ -761,7 +761,7 @@ exists to claw that back. Follow-ups raised by the verifier: IMP-139 (recover mo
 IMP-140 (the fixed "Recent problems" panel occluding the n/e/w handles at 390x844), IMP-141 (the
 readout wraps 2.4px over and doubles to 83px at `textScale: xlarge`).
 ### IMP-042 — Give the mobile tool bar a visible horizontal-scroll affordance and edge fade
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** responsiveness
 - **Type:** improvement
 - **Area / files:** `src/components/editor/ToolTabBar.tsx:69` (`nav[aria-label="Editor tools"]`), `src/components/editor/editor.module.css`, `src/components/editor/ToolTabBar.test.tsx`, evidence `.improve/artifacts/baseline/mobile-05-editor-loaded.png`
@@ -777,6 +777,36 @@ readout wraps 2.4px over and doubles to 83px at `textScale: xlarge`).
 - **Priority score:** 5 × 5 / 1 = **25**
 - **Notes:** The recon's own judgement is that a fade alone does not fix discoverability of the exit path. This item is deliberately scoped to the affordance only so it can be verified in one pass; the DOM reorder that puts Export within reach is IMP-053.
 
+
+**DONE — commit pending. Attempt 1 FAILED, attempt 2 PASSED.** Attempt 1 combined two gradients in a
+`mask-composite: add` list, which composites **fully opaque** when both ends apply: at mid-scroll
+neither edge faded (measured pixel delta **1/1/1**) — the state a user is in most of the time. Its
+e2e case asserted a computed declaration string (`count: 2`) rather than paint, so it passed while
+nothing painted. Attempt 2 replaced it with one four-stop ramp
+(`transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%`) and rewrote the case to
+difference decoded pixels against `mask-image: none` in three bands at three scroll positions.
+
+Independently verified in a real browser: mid-scroll **74/0/137** (was 1/1/1); one-sided and correct
+at each end; absent where there is nothing to scroll. Snap boundary 0.41px. `Background.right` <= 391
+at 6 appearance combinations. Desktop bar byte-identical at 2 appearances. `QUIET = 1` was shown NOT
+vacuous — a 1px shift moves the control by 0 -> 164 — and both gates (the new
+`responsiveLayout` pin and the roomy+xlarge case) were proven to bite by mutation, with every
+mutation restored and checksummed.
+
+The paint gate is **Chromium-only** (a 1-pixel-difference threshold has no meaning on WebKit, whose
+pixel output differs); the declarative pin and the geometry assertions cover WebKit.
+
+Verified sound and deliberately NOT changed: `ChipRow` blast radius (nil — byte-identical geometry
+across 7 panels x 2 widths, mutation caught by pre-existing tests), touch behaviour (flicks land on
+boundaries, reachability shortfall 0.00px, Export visible and tappable, slow drag returns to 0,
+keyboard focus unchanged), and the WebKit mask (it paints; no `-webkit-mask-image` needed).
+
+**Baseline correction, and it is not a small one.** Both verifiers established that **all 30**
+screenshots in `.improve/artifacts/baseline/` were captured at `density: roomy` + `textScale: xlarge`,
+not at default appearance. Earlier recon reported the desktop shots as being at defaults; that was
+wrong. Every mobile-derived magnitude in this backlog was therefore measured at a non-default
+setting. The defects are still real — roomy/xlarge is a supported appearance — but the *magnitude*
+of any visual claim must be re-measured at defaults before it is quoted. IMP-144 exists for this.
 ### IMP-043 — Render the Hub tool cards at opacity 1 by default and let the observer add the entrance
 - **Status:** TODO
 - **Category:** ux
@@ -2319,3 +2349,36 @@ or puts a colour-management claim in a comment.
 - **Depends on:** IMP-041
 - **Priority score:** 2 x 5 / 1 = **10**
 - **Notes:** Raised by the IMP-041 verifier. Non-blocking, but it is new code shipping with a test that does not bite, which is the same defect class as `e2e/a11y-measure.spec.ts`'s class-regex guards.
+
+### IMP-143 — Pin `scroll-padding-inline` so a keyboard-focused chip is not hidden under the fade
+- **Status:** TODO
+- **Category:** accessibility
+- **Type:** bug-fix
+- **Area / files:** `src/components/editor/editor.module.css` (the scroller introduced by IMP-042), `src/hooks/useScrollEdges.ts`, `src/components/controls/ChipRow.tsx`
+- **Intent:** IMP-042's implementer left `scroll-padding-inline` unpinned and recorded it as a known defect. Without it, a chip scrolled into view by keyboard focus lands *underneath* the edge fade rather than clear of it, so the focused control is partially masked at exactly the moment a keyboard or screen-reader user is trying to see it. This is the same occlusion class IMP-041 and IMP-042 exist to eliminate, on the focus path.
+- **Acceptance criteria:**
+  1. When a chip tab is focused by keyboard and the scroller scrolls to reveal it, the chip is **fully outside** the faded region — measured as zero intersection with the mask ramp's transparent stops.
+  2. The focus ring is fully visible at 390 x 844 for every one of the 13 tool tabs when reached by Tab, and at 1280 x 800 unchanged.
+  3. `scroll-padding-inline` is pinned by a test, so deleting it turns a gate red. The pin must be proven to bite by mutation.
+  4. The fade still paints correctly at all three scroll positions — IMP-042's own invariant must not regress.
+- **Verification method:** `npm test`; a case in `e2e/journey.mobile.spec.ts` at 390x844 that Tabs through all 13 tabs, forces each into view, and asserts the chip is clear of the fade. Screenshots to `.improve/artifacts/IMP-143/`. Run `npm run typecheck && npm run lint && npx prettier --check .`.
+- **Effort:** S  **Risk:** low
+- **Depends on:** IMP-042
+- **Priority score:** 3 x 4 / 1 = **12**
+- **Notes:** Raised by the IMP-042 implementer as a known unpinned defect and deliberately not fixed inside that item.
+
+### IMP-144 — Capture a second baseline set at default appearance
+- **Status:** TODO
+- **Category:** test
+- **Type:** tooling
+- **Area / files:** `.improve/artifacts/baseline/` (30 screenshots, currently all `density: roomy` + `textScale: xlarge`), the capture procedure the Experience auditor used
+- **Intent:** Every baseline screenshot in this loop was captured at `density: roomy` + `textScale: xlarge` rather than default appearance, and that was not recorded anywhere until two verifiers discovered it independently. Defects found against those images are still real, but any claim about *magnitude* — "the tool bar fits 5 of 13", "the readout takes 28% of the preview" — is measured at a non-default setting and cannot be quoted without that caveat. A verifier comparing a default-appearance screenshot against a roomy/xlarge baseline will also see differences that are not regressions.
+- **Acceptance criteria:**
+  1. A second complete set of baseline screenshots exists at **default appearance**, covering the same states at 1280x800 and 390x844, saved alongside the existing set with the appearance settings recorded in the filename or a manifest.
+  2. A short `README` in the baseline directory states, per set, the exact `theme` / `density` / `textScale` / `motion` / `iconScale` / `accent` values used, so a verifier can never again mistake an appearance difference for a regression.
+  3. The existing roomy/xlarge set is retained and labelled, not overwritten — it is what the original findings were measured against.
+- **Verification method:** `npx prettier --check .`; manual confirmation that the manifest matches the appearance actually set before each capture. The captures themselves are produced with the Playwright tools against the dev server on port 5173.
+- **Effort:** S  **Risk:** low
+- **Depends on:** none
+- **Priority score:** 3 x 5 / 1 = **15**
+- **Notes:** Raised by both IMP-042 verifiers. IMP-041's verifier separately recorded that the `textScale: xlarge` case makes the IMP-041 readout wrap 2.4px and double to 83px — that defect (IMP-141) is invisible at default appearance, which is exactly the class of regression a single-appearance baseline misses.

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   AdjustToolGlyph,
   BackgroundToolGlyph,
@@ -14,6 +15,7 @@ import {
   TextToolGlyph,
   type IconComponent,
 } from '../ui/icons'
+import { useScrollEdges } from '../../hooks/useScrollEdges'
 import { TOOL_IDS, useUiStore, type ToolId } from '../../store/uiStore'
 import styles from './editor.module.css'
 
@@ -64,9 +66,23 @@ const META: Record<ToolId, { label: string; Glyph: Glyph }> = {
 export function ToolTabBar() {
   const activeTool = useUiStore((state) => state.activeTool)
   const setActiveTool = useUiStore((state) => state.setActiveTool)
+  const barRef = useRef<HTMLElement>(null)
+  // At a phone width this bar measures `scrollWidth 897` against `clientWidth
+  // 390`, so eight of thirteen tools sit off-screen — and the scrollbar that
+  // would say so is hidden, which makes a scroller read as a clipped one. Both
+  // edges fade while they have something to say; the trailing fade is a lie
+  // once the last tool is in view, which is the same rule the chip rows follow
+  // and the same measurement, in `useScrollEdges`.
+  const { overflowing, beforeStart, afterEnd } = useScrollEdges(barRef, TOOL_IDS)
 
   return (
-    <nav className={styles.tabBar} aria-label="Editor tools">
+    <nav
+      className={`${styles.tabBar}${overflowing && !afterEnd ? ` ${styles.tabBarMoreEnd}` : ''}${
+        overflowing && beforeStart ? ` ${styles.tabBarMoreStart}` : ''
+      }`}
+      aria-label="Editor tools"
+      ref={barRef}
+    >
       {TOOL_IDS.map((tool) => {
         const { label, Glyph } = META[tool]
         const active = activeTool === tool
