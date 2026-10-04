@@ -23,16 +23,21 @@ Verified commands are in `REPO_PROFILE.md`; the gate baseline is in `.improve/re
 
 ## Phase
 
-**Phase 4 — the improvement loop.** Recon complete. Backlog committed at 122 items (`5afcf02`),
-now 128 after verifiers filed six follow-ups. Shipped: IMP-041 (`b957f90`), IMP-042 (`cb3e7ef`).
-In progress: IMP-144.
+**Phase 4 — the improvement loop.** Recon complete. Backlog at 128 items. **Shipped: IMP-041,
+IMP-042, IMP-144, and the headline block IMP-001/002/005/006/007/008/009/010.** 12 DONE, 110 TODO,
+6 NEEDS-HUMAN, 0 BLOCKED. Nothing has been pushed; `main` is untouched at `10ade26`.
 
-## The headline finding, in one line
+## The operator's headline defect — SHIPPED
 
-**There is no way to open a different image.** `Editor.tsx:482` unmounts the import screen forever;
-the More menu has no such action; `useDocStore` is a module singleton (`docStore.ts:80`) so the Hub
-reopens the *same* image; only a full browser reload escapes. This is the operator's own example,
-confirmed against the code and in `desktop-17-more-menu.png`. Tier 1 leads with it.
+**"There is no way to open a different image."** Confirmed against the code and in
+`desktop-17-more-menu.png`: `Editor.tsx:482` unmounts the import screen forever, the More menu had
+nothing that changes the photo, and `useDocStore` being a module singleton (`docStore.ts:80`) made
+the Hub reopen the *same* image. Only a full browser reload escaped.
+
+Fixed in `0cb3b9b` — a More-menu **New image** action, a named Hub entry policy, and a confirmation
+convention. Verified by a hard reload 48 ms after confirming (inside the 1000 ms autosave window):
+import screen, mirror null, IndexedDB row absent, 0 Resume cards. Took three attempts; see the commit
+message for what the first two got wrong, including a genuine data-loss bug.
 
 ## Sub-agent operating notes (learned the hard way — do not relearn)
 
@@ -58,18 +63,18 @@ confirmed against the code and in `desktop-17-more-menu.png`. Tier 1 leads with 
 
 ## Current item
 
-**IMP-144 — capture a second baseline set at default appearance** (`IN-PROGRESS`, score 15, no deps).
-All 30 existing baselines were captured at `density: roomy` + `textScale: xlarge`, recorded nowhere.
+**None — between items.** Next by score: IMP-054 (bottom-sheet detent keyboard route, 12.5, no deps),
+then IMP-053 (exit path within reach at 390px, 12.5), IMP-114 (recipe to a shareable file, 12.5).
 
 ## Counters
 
 | Metric                              | Value |
 | ----------------------------------- | ----- |
 | Backlog items                       | 128   |
-| Items DONE                          | 2 (IMP-041, IMP-042) |
+| Items DONE                          | 12    |
 | Items BLOCKED                       | 0     |
 | Items NEEDS-HUMAN                   | 6     |
-| Commits on branch                   | 4     |
+| Commits on branch                   | 8     |
 | Commits since last regression sweep | 0     |
 
 ## Loop mechanics that must be followed
