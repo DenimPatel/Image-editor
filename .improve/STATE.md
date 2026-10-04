@@ -23,10 +23,9 @@ Verified commands are in `REPO_PROFILE.md`; the gate baseline is in `.improve/re
 
 ## Phase
 
-**Phase 4 — the improvement loop.** Recon complete (five reports in `.improve/reports/`,
-`REPO_PROFILE.md`, 30 baseline screenshots). Backlog committed at 122 items (`5afcf02`), now 126
-after the IMP-041 verifier filed four follow-ups. IMP-041 is shipped (`b957f90`); IMP-042 is in
-progress.
+**Phase 4 — the improvement loop.** Recon complete. Backlog committed at 122 items (`5afcf02`),
+now 128 after verifiers filed six follow-ups. Shipped: IMP-041 (`b957f90`), IMP-042 (`cb3e7ef`).
+In progress: IMP-144.
 
 ## The headline finding, in one line
 
@@ -59,18 +58,18 @@ confirmed against the code and in `desktop-17-more-menu.png`. Tier 1 leads with 
 
 ## Current item
 
-**IMP-042 — mobile tool bar scroll affordance** (`IN-PROGRESS`, score 25, no deps). The 390px bottom
-tool bar fits 5 of 13 tools and clips "Background" to "Backgroun" with no scroll indication.
+**IMP-144 — capture a second baseline set at default appearance** (`IN-PROGRESS`, score 15, no deps).
+All 30 existing baselines were captured at `density: roomy` + `textScale: xlarge`, recorded nowhere.
 
 ## Counters
 
 | Metric                              | Value |
 | ----------------------------------- | ----- |
-| Backlog items                       | 126   |
-| Items DONE                          | 1 (IMP-041) |
+| Backlog items                       | 128   |
+| Items DONE                          | 2 (IMP-041, IMP-042) |
 | Items BLOCKED                       | 0     |
 | Items NEEDS-HUMAN                   | 6     |
-| Commits on branch                   | 3     |
+| Commits on branch                   | 4     |
 | Commits since last regression sweep | 0     |
 
 ## Loop mechanics that must be followed
@@ -88,19 +87,32 @@ tool bar fits 5 of 13 tools and clips "Background" to "Backgroun" with no scroll
 
 | Score | Item | Deps |
 |---|---|---|
-| 25 | IMP-042 mobile tool bar scroll affordance | none |
+| 15 | IMP-144 second baseline set at default appearance | none |
 | 12.5 | IMP-054 bottom-sheet detent keyboard route | none |
-| 12.5 | IMP-053 put the exit path within reach at 390px | IMP-042 |
+| 12.5 | IMP-053 put the exit path within reach at 390px | IMP-042 **DONE** |
 | 12.5 | IMP-114 recipe to a shareable file | none |
 | 12 | IMP-141 crop readout one line at textScale xlarge | IMP-041 **DONE** |
-| 12 | IMP-019 e2e: the changing-image journey | IMP-001, IMP-005, IMP-006 |
+| 12 | IMP-143 pin scroll-padding-inline for focused chips | IMP-042 **DONE** |
 | 10 | IMP-002 confirm before replacing a doc that has edits | none |
 | 10 | IMP-140 fixed error panel occludes crop handles on mobile | none |
-| 10 | IMP-001 "New image" action in the More menu | IMP-002, IMP-005 |
+| 10 | IMP-142 replace the vacuous frameFit assertion | IMP-041 **DONE** |
+| 10 | IMP-005 (in the headline block) | none |
+| 8 | IMP-139 recover the mobile crop preview area | IMP-041 **DONE** |
 
 **The operator's headline fix is IMP-001 + IMP-002 + IMP-005 + IMP-006 (+ IMP-019 for its e2e case).**
-IMP-002, IMP-005 and IMP-006 are all dependency-free or near-free; do them as a block so the headline
-lands whole rather than shipping a "New image" button that can silently destroy unsaved work.
+That is the "no way to open a different image" defect they named. IMP-002, IMP-005 and IMP-006 are
+dependency-free; do all four as a block so the headline lands whole rather than shipping a
+"New image" button that can silently destroy unsaved work. IMP-019 is its e2e case.
+
+## Learned in the loop — apply these
+
+- **A verifier must judge PAINT, not declarations.** IMP-042 attempt 1 shipped a mask that
+  composited fully opaque (both edges invisible) behind a test asserting a CSS declaration string.
+  It passed. Ask for pixel/byte evidence.
+- **Mutate to prove a test bites.** Both verifiers did this and it is what caught the ungated metric.
+- **Always check what appearance settings a screenshot was taken at.** They were roomy+xlarge, and
+  it silently skewed every visual magnitude quoted so far.
+- `git notes add` accepts no `-q` flag.
 
 ## Stop conditions
 
