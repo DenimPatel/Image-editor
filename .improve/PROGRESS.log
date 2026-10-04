@@ -1,0 +1,3 @@
+# Append-only progress log: timestamp | item | result | commit
+2026-10-04T00:30Z | SETUP | branch improve/auto-20261004 from main@10ade26, pre-push guard, state dir | -
+2026-10-04T00:32Z | RECON | launched recon-journeys, recon-architecture, recon-runbook, recon-quality, recon-experience | -
