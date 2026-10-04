@@ -2368,7 +2368,7 @@ or puts a colour-management claim in a comment.
 - **Notes:** Raised by the IMP-042 implementer as a known unpinned defect and deliberately not fixed inside that item.
 
 ### IMP-144 — Capture a second baseline set at default appearance
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** test
 - **Type:** tooling
 - **Area / files:** `.improve/artifacts/baseline/` (30 screenshots, currently all `density: roomy` + `textScale: xlarge`), the capture procedure the Experience auditor used
@@ -2382,3 +2382,4 @@ or puts a colour-management claim in a comment.
 - **Depends on:** none
 - **Priority score:** 3 x 5 / 1 = **15**
 - **Notes:** Raised by both IMP-042 verifiers. IMP-041's verifier separately recorded that the `textScale: xlarge` case makes the IMP-041 readout wrap 2.4px and double to 83px — that defect (IMP-141) is invisible at default appearance, which is exactly the class of regression a single-appearance baseline misses.
+- **Delivered:** `.improve/artifacts/baseline-default/` (30 PNGs, defaults, 2026-10-04 @ `7c30292`), a README in each baseline directory, and **`.improve/REPO_PROFILE.md` § 11** as the committed record (`.improve/artifacts/` is git-excluded, so the artifact READMEs do not travel). Report `reports/impl-IMP-144.md`. All three acceptance criteria met. Two things a verifier must know, both recorded in § 11.3: the sets differ by **two code fixes** as well as by appearance (IMP-041 `b957f90`, IMP-042 `cb3e7ef` landed between the two captures), and **absence of all six `data-*` attributes is the correct encoding of "at defaults"** — do not read it as "unconfigured".

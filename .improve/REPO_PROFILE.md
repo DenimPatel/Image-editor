@@ -228,8 +228,11 @@ real engine has run it.
   `BASE_URL = /Image-editor/` — `GET /` returns `302 → /Image-editor/`, so the bare origin is not
   the app. Test `http://localhost:5173/Image-editor/`.
 - Viewports: **desktop 1280 × 800 and mobile 390 × 844**, DPR 1, screenshots at `scale: 'css'`.
-- Screenshots to **`.improve/artifacts/<ID>/`**, compared against **`.improve/artifacts/baseline/`**
-  (30 files: 21 desktop + 9 mobile).
+- Screenshots to **`.improve/artifacts/<ID>/`**, compared against **`.improve/artifacts/baseline-default/`**
+  (30 files: 21 desktop + 9 mobile, captured at **default appearance**). The older set at
+  `.improve/artifacts/baseline/` is the same 30 states at **`density: roomy` +
+  `textScale: xlarge`** — do not diff against it without reading **§ 11**, which records
+  both appearance settings and the two code fixes that separate the sets.
 - Use the built-in **"Sample 1"** (1271 × 1920 portrait) to avoid the file chooser and any network
   fetch. Opening the Background panel is safe; **using** it is not (42 MB).
 - Mobile caveat that must be repeated in any report: a 390 px viewport in a desktop browser is
@@ -434,3 +437,132 @@ be trusted even where its **prose** counts cannot.
   added → expected.
 - A jsdom assertion about layout, overlap, visibility or reachability → **proves nothing**,
   regardless of whether it passes.
+
+---
+
+## 11. The two visual baseline sets, and their appearance settings
+
+**Added by IMP-144, 2026-10-04. This section is the committed record.** The PNGs and the
+per-set `README.md` files live under `.improve/artifacts/`, which is listed in
+`.git/info/exclude` and in `.prettierignore`, so they do **not** travel with the history.
+This section does.
+
+There are two baseline sets. Both are 30 PNGs covering the same 21 desktop and 9 mobile
+states, at 1280 × 800 and 390 × 844, DPR 1, `scale: 'css'`, captured with the Playwright
+MCP browser tools against the dev server on **5173** using the built-in **Sample 1**
+(1271 × 1920). Filenames and pixel dimensions are identical between the sets, so they diff
+file-for-file. **They differ in appearance, and — read §11.3 — in code.**
+
+| | Set A | Set B |
+| --- | --- | --- |
+| Directory | `.improve/artifacts/baseline/` | `.improve/artifacts/baseline-default/` |
+| Captured | 2026-10-03 20:27–20:44 | 2026-10-04 04:38–05:20 |
+| Commit | `aea8523` | `7c30292` |
+| Report | `reports/recon-experience.md` | `reports/impl-IMP-144.md` |
+| Per-set README | `artifacts/baseline/README.md` | `artifacts/baseline-default/README.md` |
+| Use it for | the states the original findings were measured against | **quoting a magnitude** |
+
+### 11.1 The six appearance settings, per set
+
+The six settings are `DEFAULT_APPEARANCE` in `src/lib/appearance.ts:58-65` and reach the
+page as six `<html>` data-attributes.
+
+| Setting | Set A | Set B | `DEFAULT_APPEARANCE` |
+| --- | --- | --- | --- |
+| `theme` | `system` | `system` | `system` |
+| `density` | **`roomy`** | `default` | `default` |
+| `textScale` | **`xlarge`** | `default` | `default` |
+| `motion` | `full` | `full` | `full` |
+| `iconScale` | `default` | `default` | `default` |
+| `accent` | `green` | `green` | `green` |
+
+**Set A is at a non-default appearance. That was never recorded anywhere until two
+verifiers discovered it independently.** Three independent confirmations, in order of
+strength:
+
+1. **The pixels.** `artifacts/baseline/mobile-08-appearance-panel.png` is the Appearance
+   dialog, and it shows **Roomy ✓** and **Extra large ✓** with **Reset to defaults
+   enabled**. The evidence was in the artefact the whole time.
+2. **The stored payload.** The browser profile that took set A still held
+   `localStorage['image-editor-appearance'] = {"density":"roomy","textScale":"xlarge"}`.
+   `coerceAppearance()` fills the four absent keys from the defaults.
+3. **The verifiers.** `verify-IMP-042-attempt2.md:110-122` measured `Background.right` =
+   365.72, and `:246-257` shows that value is reachable only at `roomy` + `xlarge`.
+
+### 11.2 Two rules for reading a screenshot
+
+- **Absence of a data-attribute means "at the default", not "not set".**
+  `appearanceAttributes()` (`src/lib/appearance.ts:438-461`) deliberately omits any setting
+  whose value equals its default, so that the OS-preference `:root:not([data-theme])`
+  branch in `tokens.css` keeps working. **Set B was captured with all six attributes
+  absent from `<html>`.** A verifier checking "is `data-density` set?" will conclude set B
+  is unconfigured; it is in fact the fully-default set.
+- **Verify the appearance by looking at `mobile-08-appearance-panel.png` in each set.** The
+  Appearance dialog is a rendered, self-describing record of the setting that produced the
+  frame next to it: set A reads Roomy / Extra large, set B reads Default / Default, and in
+  set B the **Reset to defaults** button is `disabled` because
+  `disabled={isDefault(settings)}` (`src/components/ui/AppearanceMenu.tsx:518`). No tooling
+  and no `localStorage` archaeology required.
+
+### 11.3 The two sets are NOT appearance-only different — read this before diffing
+
+Set A was captured at `aea8523`; set B at `7c30292`. Two fixes landed in between:
+
+- `b957f90` — **IMP-041**, "move the readout out of the crop frame so the s handle is
+  grabbable". In set A, `desktop-09` and `desktop-10` are **byte-identical**
+  (md5 `3f7850892c74ad653676cc3687c5ee09`) — that identity *was* the finding: the bottom
+  crop handle's focus ring was entirely hidden behind the `1271 × 1920 px · 2:3` readout.
+  In set B they **differ**, the readout sits below the frame at y ≈ 713, and the focused
+  handle shows `outline: rgb(56,178,140) solid 3px` at `offset −3px`, `:focus-visible`
+  true. This is the concrete case IMP-144 was raised for: a defect invisible at defaults.
+- `cb3e7ef` — **IMP-042**, the mobile tool bar. Set A's `mobile-05` shows "Background"
+  clipped mid-word; set B's shows it whole.
+
+Conversely `desktop-20`/`desktop-21` are byte-identical in **both** sets (set A
+`fee649a7…`, set B `2d203c5e…`), so the "Done is a silent no-op with a panel open" defect
+(C-01 / D-02) reproduces unchanged at defaults.
+
+**A pixel difference between the two sets is evidence of *either* an appearance change
+*or* one of those two fixes. Name which before reporting it.**
+
+### 11.4 Magnitudes, measured
+
+Measured in set B (defaults) in this browser; the set-A column is quoted from
+`recon-experience.md` and the verifier reports, not re-measured. Full per-shot provenance
+is in each directory's README.
+
+| Measurement | Set B (defaults) | Set A (roomy + xlarge) |
+| --- | --- | --- |
+| `Background` tab `right`, 1280 × 800 | **380.17** | 365.72 |
+| Tool-bar `scrollWidth` vs `clientWidth`, 1280 × 800 | **1280 = 1280** | 899 track |
+| Tool-bar `scrollWidth` vs `clientWidth`, 390 × 844 | **785 vs 390** (scrolls) | — |
+| Hub page height, 1280 wide, `fullPage` | **1699** | 1953 |
+| Hub page height, 390 wide, `fullPage` | **2934** | 3477 |
+| Hub sticky header, 390 px | **116 px, 2 rows** | 188 px, 3 rows |
+| Editor empty-state max `scrollTop`, 1280 × 800 | **309** | 585 |
+| Crop-sheet max `scrollTop`, 1280 × 800 | **117** | 299 |
+| Aspect-ratio chips per row, Crop sheet at 1280 | **5** | 3 |
+| Canvas CSS size, 1280 × 800, no panel | **430.81 × 650.80** | — |
+| Canvas CSS size, 390 × 844, Crop sheet open | **107.30 × 162.09** | 135 × 204 |
+
+**The 356.77 px that IMP-042's implementer quoted from the baseline is not reproducible
+today at any appearance** — it was a pre-fix measurement, and `cb3e7ef` changed the tab
+metrics afterwards. `380.17` is the current defaults value.
+
+### 11.5 Console, both sets
+
+Zero errors and one warning on a fresh load for every navigation and every panel switch,
+in both sets. The single warning is pre-existing and benign:
+
+```
+React Router Future Flag Warning: React Router will begin wrapping state updates in
+React.startTransition in v7. You can use the `v7_startTransition` future flag to opt-in early.
+  @ node_modules/.vite/deps/react-router-dom.js:3614
+```
+
+A full-session log (`all: true`) holds ~20 older errors — "Rendered more hooks than during
+the previous render", "Cannot read properties of null (reading 'getSnapshot')", "Failed to
+fetch dynamically imported module … `?t=…`". Their `?t=` timestamps are ~17 hours older
+than the set-B capture and they belong to a previous browser session during which other
+agents were editing `src/`. That is the HMR-artefact class § 5.4 warns about; do not
+attribute them to a baseline.
