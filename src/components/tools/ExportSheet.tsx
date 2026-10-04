@@ -244,6 +244,11 @@ export function ExportSheet({
       // not still reading "the browser refused" while it works.
       setFailure(null)
       ui.startJob({ id: jobId, label, progress: 0, status: 'running' })
+      // `running` is local state, so only this component knows an encode is
+      // running — and the encoder is reading the document, which a "New image"
+      // outside this panel would replace underneath it. The store is where a
+      // control that is not in this sheet can see that.
+      ui.setExportBusy(true)
       try {
         const value = await raceAbort(
           run(controller.signal, (progress) => {
@@ -271,6 +276,7 @@ export function ExportSheet({
       } finally {
         if (inFlight.current === controller) inFlight.current = null
         setRunning(null)
+        useUiStore.getState().setExportBusy(false)
       }
     },
     [],

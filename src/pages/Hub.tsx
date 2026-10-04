@@ -4,6 +4,7 @@ import { Nav } from '../components/ui/Nav'
 import { Button } from '../components/ui/Button'
 import { IconTile } from '../components/ui/IconTile'
 import { buildLabel } from '../lib/buildInfo'
+import { hubDoorTo } from '../lib/editorEntry'
 import { licencesSummary } from '../lib/licenses'
 import {
   ArrowRightGlyph,
@@ -17,6 +18,7 @@ import {
   WorkspaceGlyph,
   type IconComponent,
 } from '../components/ui/icons'
+import type { ToolId } from '../store/uiStore'
 
 /**
  * The skip link is off-screen until it takes focus, which is the whole point: a
@@ -29,7 +31,20 @@ import {
  */
 
 type Tool = {
-  to: string
+  /**
+   * Which tool this door names, and the door's path comes from `HUB_DOORS` rather
+   * than being typed here.
+   *
+   * It used to be a literal `to` string in this table, and `editorEntry.ts` held a
+   * second table of the same eight paths for the editor to interpret. Two tables,
+   * and the only thing checking them against each other was a unit test reading the
+   * first one — which is how `HUB_DOORS` ended up with no runtime consumer at all:
+   * it was an assertion, dressed as a constant. Naming the tool here and looking
+   * the path up makes this file and the editor read one list, so a card cannot
+   * point somewhere the editor answers differently, and `HUB_DOORS` is now load-
+   * bearing in both directions.
+   */
+  tool: ToolId | null
   title: string
   copy: string
   Icon: IconComponent
@@ -65,49 +80,49 @@ type Tool = {
  */
 const TOOLS: Tool[] = [
   {
-    to: '/editor/crop',
+    tool: 'crop',
     title: 'Crop & Straighten',
     copy: 'Crop to any ratio, straighten, rotate or flip — with precision.',
     Icon: CropToolGlyph,
   },
   {
-    to: '/editor/adjust',
+    tool: 'adjust',
     title: 'Adjust',
     copy: 'Fine-tune brightness, contrast, and saturation live.',
     Icon: AdjustToolGlyph,
   },
   {
-    to: '/editor/filters',
+    tool: 'filters',
     title: 'Looks',
     copy: 'Twenty-four film looks in four families, each with an amount you can dial.',
     Icon: FilterToolGlyph,
   },
   {
-    to: '/editor/export',
+    tool: 'export',
     title: 'Resize & Export',
     copy: 'Export as JPEG, PNG, WebP or PDF at any size, DPI and quality — plus AVIF where your browser can encode it.',
     Icon: ExportToolGlyph,
   },
   {
-    to: '/editor/passport',
+    tool: 'passport',
     title: 'Passport Photos',
     copy: 'US, UK, Schengen and more — auto-framed, compliance-checked, printable sheets.',
     Icon: PassportToolGlyph,
   },
   {
-    to: '/editor/background',
+    tool: 'background',
     title: 'Remove Background',
     copy: 'Cut out the subject and replace it with a colour, gradient or transparency.',
     Icon: BackgroundToolGlyph,
   },
   {
-    to: '/editor/layers',
+    tool: 'layers',
     title: 'Text & Layers',
     copy: 'Add text, stickers, drawings, redactions, watermarks and frames.',
     Icon: LayersToolGlyph,
   },
   {
-    to: '/editor',
+    tool: null,
     title: 'Open Full Editor',
     copy: 'Everything in one workspace — every tool, all at once.',
     Icon: WorkspaceGlyph,
@@ -178,23 +193,26 @@ export default function Hub() {
             <h2>Pick a starting point</h2>
           </div>
           <div className="tool-grid">
-            {TOOLS.map(({ to, title, copy, Icon, featured }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`tool-card reveal${featured ? ' tool-card--featured' : ''}`}
-              >
-                <IconTile>
-                  <Icon className="tool-card__icon" />
-                </IconTile>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-                <span className="tool-card__link">
-                  {featured ? 'Open workspace' : 'Get started'}{' '}
-                  <ArrowRightGlyph className="tool-card__arrow" />
-                </span>
-              </Link>
-            ))}
+            {TOOLS.map(({ tool, title, copy, Icon, featured }) => {
+              const to = hubDoorTo(tool)
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`tool-card reveal${featured ? ' tool-card--featured' : ''}`}
+                >
+                  <IconTile>
+                    <Icon className="tool-card__icon" />
+                  </IconTile>
+                  <h3>{title}</h3>
+                  <p>{copy}</p>
+                  <span className="tool-card__link">
+                    {featured ? 'Open workspace' : 'Get started'}{' '}
+                    <ArrowRightGlyph className="tool-card__arrow" />
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </section>
       </main>

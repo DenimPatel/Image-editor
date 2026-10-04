@@ -216,16 +216,21 @@ test.describe('the help overlay is a help overlay', () => {
 
     const menu = page.getByRole('menu', { name: 'More options' })
     await expect(menu).toBeVisible()
-    // Grouped, so a reader does not have to read seven words to find one, and every
+    // Grouped, so a reader does not have to read every word to find one, and every
     // row is marked, so the labels line up as a column instead of a paragraph.
     const separators = await menu.locator('[role="separator"]').count()
     expect(separators).toBeGreaterThan(0)
     const rows = menu.locator('[role="menuitem"]')
-    await expect(rows).toHaveCount(7)
+    // Eight: the seven document actions plus "New image", which is in its own group
+    // because it is the only row that is neither an editor setting nor an edit to
+    // this photo — it replaces the document. That is also why there are three
+    // separators rather than two.
+    await expect(rows).toHaveCount(8)
     const marked = await menu
       .locator('[role="menuitem"] svg, [role="menuitem"] > span[class*="menuItemIcon"]')
       .count()
-    expect(marked).toBe(7)
+    expect(marked).toBe(8)
+    expect(separators).toBe(3)
     // Three surfaces, one radius and one hairline. The help panel was `--radius-xl`
     // where the other two are `--radius-md`, which is the clearest signal that three
     // designs shipped where one was meant.

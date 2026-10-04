@@ -186,6 +186,11 @@ export function stubMatchMedia(matches: (query: string) => boolean = () => false
  * `errorLog` and writes it to `localStorage`, and a background-removal job is a
  * progress bar with a lifetime. Neither is document state, and neither survives a
  * reload.
+ *
+ * `exportBusy` is the same kind of field — a running encode belongs to the test
+ * that started it, not to the next one — and it is here for a second reason: a
+ * file that leaves it set has a "New image" menu row stuck at `aria-disabled`,
+ * which is exactly the sort of control that looks broken for no visible cause.
  */
 export function resetStores(): void {
   useDocStore.getState().load(createDoc())
@@ -196,5 +201,6 @@ export function resetStores(): void {
     toasts: [],
     errorLog: [],
     jobs: [],
+    exportBusy: false,
   })
 }

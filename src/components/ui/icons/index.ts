@@ -49,6 +49,7 @@ export {
   KeyboardGlyph,
   MoonGlyph,
   MoreGlyph,
+  NewImageGlyph,
   PauseGlyph,
   PlayGlyph,
   PasteGlyph,

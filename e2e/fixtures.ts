@@ -345,9 +345,9 @@ export const test = base.extend<Fixtures>({
     })
   },
 
-  readDoc: async ({ page }, use) => {
+  readDoc: async ({ page, baseURL }, use) => {
     await use(async () => {
-      const doc: Doc | null = await page.evaluate(readDocExpression(appBase(page)))
+      const doc: Doc | null = await page.evaluate(readDocExpression(appBase(page, baseURL)))
       if (!doc) throw new Error('the editor has no document yet')
       // A second store instance answers with a *default* document, which is
       // truthy and therefore slips past the guard above. Anything that reached
@@ -388,8 +388,19 @@ export const test = base.extend<Fixtures>({
   },
 })
 
-/** `/Image-editor/` for the default `base`; the path up to and including the slash. */
-function appBase(page: { url: () => string }): string {
+/**
+ * `/Image-editor/` for the default `base`; the path up to and including the slash.
+ *
+ * `baseURL` first, because the current URL is only the deployment root on the Hub
+ * and on `/editor` itself. On `/editor/adjust` the parent directory is
+ * `/Image-editor/editor/`, which serves no modules, so the dynamic import fell over
+ * and the `catch` fell back to reading IndexedDB — and on a document that had never
+ * been saved that is a row that does not exist. The failure read as "the editor has
+ * no document yet" on a page with a photograph on it, which is precisely the
+ * misleading fallback this file's own header warns about.
+ */
+function appBase(page: { url: () => string }, baseURL?: string): string {
+  if (baseURL) return new URL(baseURL).pathname
   const path = new URL(page.url()).pathname
   return path.slice(0, path.lastIndexOf('/') + 1)
 }

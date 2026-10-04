@@ -420,11 +420,28 @@
   --z-menu: 42;
   /* Transient confirmations, which must survive a sheet being open. */
   --z-toast: 60;
-  /* A full-bleed modal overlay such as the help panel. */
+  /* A full-bleed modal overlay such as the help panel, and the destructive
+     confirmation. Above every sheet, menu and toast, because it is the only thing
+     in the app that may be asking a question while one of those is open. */
   --z-overlay: 70;
-  /* The skip link, and the crash boundary. Nothing may cover either: the skip
-     link has to be reachable and visible at the moment it takes focus. */
+  /* The skip link: nothing may cover it, because it has to be reachable and
+     visible at the moment it takes focus. */
   --z-skip: 100;
+  /* The crash boundary. Above everything the app draws for itself, and **below
+     `--z-overlay`**, which is the only arrangement that works once it owns a
+     dialog of its own. `.crash` is `position: fixed; inset: 0` and a *sibling*
+     of `<ConfirmDialog>` in `RouteError`'s render, so while it sat at
+     `--z-skip` (100) it painted over the dialog asking "Start over?": the confirm
+     control was visible, correctly named, and unreachable, because the
+     `Start over — deletes your photo and edits` button underneath intercepted the
+     click. A modal that cannot be answered is worse than no modal, because the
+     thing underneath it still works and looks like the answer.
+
+     So it sits in the one gap in the ladder that had no occupant — above the toasts
+     it has to be readable over, below the one dialog that may be asking it a
+     question. It is a token rather than a number so that the next thing needing a
+     band has to be argued into the ladder instead of picking 95. */
+  --z-crash: 65;
 }
 
 /* ---------- Motion ---------- */

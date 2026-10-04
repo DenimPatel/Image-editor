@@ -243,6 +243,25 @@ describe('the watermark inspector (D8-F18)', () => {
     harness.render(<TextPanel />)
   })
 
+  it('deletes the watermark on one press, and Undo puts it back', () => {
+    // Deleting a layer is one of the four controls `Ctrl+Z` reaches — `removeLayer`
+    // is a store action, so it pushes a history entry of its own — and Undo is in the
+    // top bar of the same frame. So the press acts, and Undo is the recovery. Both
+    // halves are asserted here because "the layer is gone" alone would also pass
+    // against a button that destroyed work nothing could bring back.
+    //
+    // The first half is the stronger claim and the one a dialog would have broken: no
+    // question is asked at all, which is why no `ConfirmDialog` is mounted here. A
+    // mounted host is what made a two-press version of this test pass; its absence is
+    // now the assertion.
+    act(() => button('Delete layer')?.click())
+    expect(useDocStore.getState().present.layers).toHaveLength(0)
+
+    act(() => useDocStore.getState().undo())
+    expect(useDocStore.getState().present.layers).toHaveLength(1)
+    expect(useDocStore.getState().present.layers[0].id).toBe('w1')
+  })
+
   it('opens on a watermark and shows the mark itself', () => {
     const text = byLabel('Watermark text') as HTMLTextAreaElement
     expect(text).not.toBeNull()

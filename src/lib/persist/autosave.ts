@@ -48,6 +48,42 @@ export type Autosave = {
   schedule: () => void
   /** Write now if anything is pending; resolves when the write has settled. */
   flush: () => Promise<void>
+  /**
+   * Drop the pending write and keep the scheduler alive.
+   *
+   * The one caller is "New image": the document being replaced is not the one the
+   * user wants saved, and a debounce still armed for it would commit the row that
+   * was just deleted, which is how a replaced photo came back on the next reload.
+   *
+   * It drops only work that has not started. A write already in flight holds its
+   * own transaction and cannot be recalled, which is why the caller has to pair
+   * this with `idle()` before deleting: see that method for the ordering, because
+   * the whole point of this one is that it is synchronous and therefore safe to
+   * call in the middle of a click handler.
+   */
+  cancel: () => void
+  /**
+   * Resolve once no write is in flight, so a caller that is about to delete the
+   * stored rows knows the last write has already landed.
+   *
+   * This exists because "cancel, then delete" is not enough on its own. `cancel`
+   * is deliberately a no-op while a write is in flight — a transaction already
+   * dispatched cannot be recalled, and dropping the reference would only stop the
+   * follow-up write from being scheduled — so a delete issued in the same tick
+   * races a write that then commits the row the delete just removed. Nothing
+   * scheduled another write afterwards, because the replaced document has no
+   * `schedule()` pending: the effect that schedules returns early when there is no
+   * source. The replaced photograph came straight back, which is the entire thing
+   * this feature exists to prevent.
+   *
+   * So the caller awaits this first and deletes second. `cancel()` still does the
+   * part that can be done immediately — dropping the armed debounce — so the
+   * window being closed is as short as it can be.
+   *
+   * Never rejects, and never resolves before the in-flight write settles: it is
+   * `await`ed from a click handler that has no way to report a failure.
+   */
+  idle: () => Promise<void>
   /** Drop pending work and release the timer. */
   dispose: () => void
   pending: () => boolean
@@ -145,6 +181,30 @@ export function createAutosave(deps: AutosaveDeps, options: AutosaveOptions = {}
       disposed = true
       dirtySince = null
       cancelTimer()
+    },
+    cancel: () => {
+      // Not `dispose()`: the scheduler outlives the document it was holding, and
+      // the next edit has to be savable. Only work that has *not* started is
+      // dropped — `inFlight` is left alone deliberately, because a transaction
+      // already dispatched cannot be recalled and killing the reference would only
+      // stop the follow-up write from being scheduled. `idle()` is what the caller
+      // awaits before deleting what a late write would put back.
+      if (disposed) return
+      // Unconditional, including while a write is in flight: `queued` is the flag
+      // that makes `run()` fire exactly one follow-up write when the current one
+      // settles, and that follow-up is a write of the document being replaced. It
+      // has to be dropped here or it commits the row the caller is about to
+      // delete, a microtask later.
+      dirtySince = null
+      queued = false
+      cancelTimer()
+    },
+    idle: async () => {
+      // Read once into a local: `run()` nulls `inFlight` in its own `finally`, and
+      // re-reading the module-scoped binding could observe the *next* write rather
+      // than this one if something scheduled while we were awaiting.
+      const running = inFlight
+      if (running) await running
     },
     pending: () => dirtySince !== null || inFlight !== null,
   }

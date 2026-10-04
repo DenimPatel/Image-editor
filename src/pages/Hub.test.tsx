@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { HUB_DOORS, editorEntryTool } from '../lib/editorEntry'
 import { createHarness, resetStores } from '../store/testHarness'
 import { TOOL_IDS } from '../store/uiStore'
 import Hub from './Hub'
@@ -312,6 +313,28 @@ describe('the hub sends you where the button says it does', () => {
     expect(slugs.length).toBeGreaterThan(0)
     for (const slug of slugs) {
       expect(TOOL_IDS, `${hrefs.join(' ')} → ${slug}`).toContain(slug.replace('/', ''))
+    }
+  })
+
+  it('renders exactly the doors the editor reads its intent from', () => {
+    // The editor decides what a URL means from `HUB_DOORS`, because it cannot import
+    // the Hub's card table without pulling the Hub into the editor's chunk. Two
+    // tables is only safe while something checks them against each other, and this
+    // is that: a card added without a door loses its intent, and a door without a
+    // card is a route nobody can reach from the Hub.
+    renderHub()
+    const hrefs = Array.from(harness.container.querySelectorAll('.tool-card'))
+      .map((card) => (card as HTMLAnchorElement).getAttribute('href'))
+      .filter((href): href is string => typeof href === 'string')
+      .sort()
+    expect(hrefs).toEqual(
+      HUB_DOORS.map((door) => door.to)
+        .sort()
+        .slice(),
+    )
+    // And the tool each door claims is the tool the editor will open for it.
+    for (const door of HUB_DOORS) {
+      expect(editorEntryTool(door.to, TOOL_IDS)).toBe(door.tool)
     }
   })
 

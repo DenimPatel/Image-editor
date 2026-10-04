@@ -365,6 +365,42 @@ describe('layer actions', () => {
     expect(state().present.layers.map((layer) => layer.id)).toEqual([b])
   })
 
+  it('removeLayer and clearDrawStrokes are each one undo step', () => {
+    // The panel's two deletion controls act on the press rather than asking, and
+    // that is only safe while Undo reaches them. This is the claim the whole
+    // convention in `src/lib/destructive.ts` rests on: `Ctrl/Cmd+Z` brings these
+    // back, so no dialog goes in front of them. A `removeLayer` that rewrote the
+    // document without pushing history would leave "no confirmation" describing
+    // something irreversible, and only this kind of test says so.
+    const a = addTextLayer('a')
+    const beforeRemove = state().past.length
+    removeLayer(a)
+    expect(state().past).toHaveLength(beforeRemove + 1)
+    state().undo()
+    expect(state().present.layers.map((layer) => layer.id)).toEqual([a])
+    expect(state().past).toHaveLength(beforeRemove)
+
+    const draw: DrawLayer = {
+      id: 'd1',
+      kind: 'draw',
+      name: 'draw',
+      visible: true,
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, blend: 'normal' },
+      color: '#ffffff',
+      size: 8,
+      brush: 'pen',
+      strokes: [{ points: [{ x: 1, y: 1 }], radius: 8, hardness: 1 }],
+    }
+    addLayerToDoc(draw)
+    const stepsBefore = state().past.length
+    clearDrawStrokes('d1')
+    expect(state().past).toHaveLength(stepsBefore + 1)
+    state().undo()
+    expect(state().present.layers.find((layer) => layer.id === 'd1')).toMatchObject({
+      strokes: [{ points: [{ x: 1, y: 1 }] }],
+    })
+  })
+
   it('addLayerToDoc appends and is one step', () => {
     addLayerToDoc({
       id: 'l1',

@@ -642,6 +642,100 @@
   color: var(--ie-ink-soft);
 }
 
+/* The destructive confirmation. Same overlay geometry and same panel surface as
+   `.helpOverlay`/`.helpPanel` on purpose: two modals in one app that do not look
+   like each other is how the second one gets mistaken for a page. */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.confirmPanel {
+  background: var(--ie-chrome-solid);
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  max-width: 420px;
+  width: 100%;
+  color: var(--ie-ink);
+}
+.confirmPanel:focus,
+.confirmPanel:focus-visible {
+  /*
+   * A ring, and this is a correction rather than a style choice.
+   *
+   * `.helpPanel` needed `outline: none` and this rule was copied from it — but the
+   * two modals are not the same case. The help panel has exactly one control, so
+   * the first Tab lands on a button that paints its own ring and the container
+   * never needs one. The confirmation has three stops, and the panel itself is one
+   * of them: `focusTrap` puts it in the cycle so Tab wraps from the last button
+   * back to the top. So a keyboard user reaches this element and got nothing —
+   * no ring, no border change, no visible indicator at all of where focus was.
+   *
+   * The ring is `var(--ie-ink)` rather than the accent colour, and that is the
+   * `.helpPanel` comment's one right answer carried over: accent-coloured on a
+   * dark chrome box reads as an error box, and this is a question, not an error.
+   * `outline-offset: 2px` matches the cancel button's ring so the two stops agree
+   * about where their indicator sits.
+   */
+  outline: 3px solid var(--ie-ink);
+  outline-offset: 2px;
+}
+.confirmTitle {
+  margin: 0 0 10px;
+  font-size: calc(1rem * var(--text-scale));
+}
+.confirmBody {
+  margin: 0 0 20px;
+  color: var(--ie-ink-soft);
+  font-size: calc(0.875rem * var(--text-scale));
+}
+/* The safe control is on the left and the committing one on the right, which is
+   the platform order and therefore the one a thumb already knows. Reversing it
+   would put the destructive control where every dialog in the OS puts Cancel. */
+.confirmActions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.confirmCancel,
+.confirmGo,
+.confirmDanger {
+  border: 1px solid var(--ie-hairline);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ie-ink);
+  font: inherit;
+  font-weight: 600;
+  min-height: var(--ie-tap);
+  padding: 0 20px;
+  cursor: pointer;
+}
+.confirmGo {
+  background: var(--ie-accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+/* Ink, not a red fill: a saturated red button on a 24px-radius surface is the
+   app's loudest available colour, and this is a question, not an alarm. The
+   border and the text both carry it, so the button is still identifiable as the
+   committing one with no colour perception at all. */
+.confirmDanger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.confirmCancel:hover,
+.confirmGo:hover,
+.confirmDanger:hover {
+  background: var(--ie-fill-hover);
+}
+
 @media (max-width: 480px) {
   /* A phone is the one width where thirteen tools cannot fit, so this is the
      width where the bar has to behave like a scroller rather than like a row.

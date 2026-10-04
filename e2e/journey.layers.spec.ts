@@ -154,6 +154,11 @@ test.describe('layers', () => {
     expect((await readDoc()).layers[0].id).toBe(first)
 
     await list.getByRole('button', { name: 'Delete layer' }).click()
+    // One press, no question. `removeLayer` is a store action, so the press pushes
+    // its own undo step and Undo is in the top bar of the same frame — the whole
+    // point of the convention `src/lib/destructive.ts` states. So the layer is gone
+    // by the time this line has run, rather than by the time a dialog has been
+    // answered.
     await settle()
     expect((await readDoc()).layers).toHaveLength(0)
     await expect(list.getByText('No layers yet')).toBeVisible()

@@ -7,6 +7,7 @@ import {
   InfoGlyph,
   KeyboardGlyph,
   MoreGlyph,
+  NewImageGlyph,
   PasteGlyph,
   RedoGlyph,
   SaveGlyph,
@@ -14,7 +15,9 @@ import {
   UndoGlyph,
 } from '../ui/icons'
 import { useMenuPopover } from '../ui/useMenuPopover'
+import { newImageBlockedReason } from '../../lib/editorEntry'
 import { useDocStore } from '../../store/docStore'
+import { useUiStore } from '../../store/uiStore'
 import styles from './editor.module.css'
 
 export type EditorTopBarProps = {
@@ -28,6 +31,8 @@ export type EditorTopBarProps = {
   onInfo: () => void
   onShowHelp: () => void
   canPaste: boolean
+  /** Hand the document back to the import screen. Confirmed by the caller. */
+  onNewImage: () => void
 }
 
 export function EditorTopBar({
@@ -41,23 +46,30 @@ export function EditorTopBar({
   onInfo,
   onShowHelp,
   canPaste,
+  onNewImage,
 }: EditorTopBarProps) {
   const [appearanceOpen, setAppearanceOpen] = useState(false)
   const canUndo = useDocStore((state) => state.past.length > 0)
   const canRedo = useDocStore((state) => state.future.length > 0)
   const undo = useDocStore((state) => state.undo)
   const redo = useDocStore((state) => state.redo)
+  const exportBusy = useUiStore((state) => state.exportBusy)
+  // Stays in the menu when it cannot be pressed, with the reason attached. A row
+  // that vanishes while an export runs teaches the user that the menu is unreliable
+  // and teaches them nothing about what they are waiting for.
+  const newImageBlocked = newImageBlockedReason(exportBusy)
   // The popover is rendered as a sibling of the <header>, not inside it: the
   // header is a stacking context and the desktop inspector is above it.
   //
-  // Two groups and a mark per row, which is what the audit asked for and the reason
-  // is the same in both cases: seven undifferentiated words in one column make a
-  // reader read seven to find one. The split is the one the menu's own contents
-  // suggest — the editor's own settings, then this document's edits — and the marks
-  // are the difference between a menu you scan and a menu you read. `group` and
-  // `icon` are both optional in `MenuItem`, and every one of the seven rows here has
-  // a true mark rather than a borrowed one; a row with nothing that names it keeps
-  // nothing, because a wrong glyph is a claim about what the row does.
+  // Marks on every row and groups between them, which is what the audit asked for
+  // and the reason is the same in both cases: undifferentiated words in one column
+  // make a reader read the whole column to find one row. The order is the menu's
+  // own contents speaking — the editor's settings, then the one row that replaces
+  // the document, then this document's edits — and the marks are the difference
+  // between a menu you scan and a menu you read. `group` and `icon` are both
+  // optional in `MenuItem`, and every row here has a true mark rather than a
+  // borrowed one; a row with nothing that names it keeps nothing, because a wrong
+  // glyph is a claim about what the row does.
   const { triggerRef, triggerProps, popover } = useMenuPopover({
     label: 'More options',
     items: [
@@ -77,6 +89,21 @@ export function EditorTopBar({
         onSelect: () => setAppearanceOpen(true),
         icon: SparkleGlyph,
         group: 'editor',
+      },
+      {
+        // Its own group, between the editor's settings and this document's edits,
+        // because it is the only row that is about neither: it does not change the
+        // photo and it is not an edit to it, it *replaces* the document. Filed with
+        // the edits it would have read as another thing you can do to this picture;
+        // filed with the settings it would have read as a preference. The separator
+        // above and below it is the menu saying so.
+        id: 'new-image',
+        label: 'New image',
+        onSelect: onNewImage,
+        icon: NewImageGlyph,
+        group: 'photo',
+        disabled: newImageBlocked !== null,
+        description: newImageBlocked ?? undefined,
       },
       {
         id: 'reset',

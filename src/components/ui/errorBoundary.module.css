@@ -1,7 +1,10 @@
 .crash {
   position: fixed;
   inset: 0;
-  z-index: var(--z-skip);
+  /* `--z-crash`, not `--z-skip`: the crash screen owns a confirmation dialog
+     ("Start over?") and `--z-skip` is 100, which painted over it. See the ladder
+     in `tokens.css`. */
+  z-index: var(--z-crash);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1175,6 +1175,13 @@ export function DrawPanel() {
         onChange={(size) => updateLayerPatch(target.id, { size })}
       />
       <TransformControls layer={target} />
+      {/* Both buttons here act on the press. `clearDrawStrokes` and `removeLayer`
+          are store actions, so each pushes a history entry of its own and Undo —
+          one press away, in the top bar — puts it back. They are two of the four
+          controls named in `UNDOABLE_ACTIONS`, and a dialog in front of either is a
+          second decision about work that is already recoverable, asked on every
+          press of the controls a person presses most while iterating. The four that
+          do ask are in `destructive.ts`, and this panel owns none of them. */}
       <div className={styles.buttonRow}>
         <button
           type="button"
@@ -1315,12 +1322,13 @@ function LayerRow({
               tap targets are 44 px each, so eye + name + four controls needs
               200 px of chrome and leaves 109 px for the name. "Watermark · ©
               Your Company Name" is about 190 px. One control had to move, and
-              this is the one that should: deleting is the only irreversible
-              action in the row, and putting it behind a selection is the same
-              decision "delete this layer, not that one" already implies.
+              this is the one that should: deleting is the only action in the row
+              that takes something away, so putting it behind a selection is the
+              same decision "delete this layer, not that one" already implies.
 
-              Reorder stays on every row — it is the reversible one, and moving a
-              layer one step is the thing a stack of six wants at a glance. */}
+              Reorder stays on every row — it is the one that changes the stack
+              rather than its contents, and moving a layer one step is the thing a
+              stack of six wants at a glance. */}
           <IconButton label="Delete layer" onClick={() => removeLayer(layer.id)}>
             <TrashGlyph />
           </IconButton>

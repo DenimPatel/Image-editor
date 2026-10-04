@@ -128,6 +128,43 @@ function errorText(): string | null {
   return harness.container.querySelector('[role="alert"]')?.textContent ?? null
 }
 
+/**
+ * The confirmation, found by the question it asks.
+ *
+ * Located by text rather than by `[aria-modal]`, because the first-run panel is a
+ * modal dialog too and a selector that matches those turns "the confirmation was
+ * not asked" into a claim about whichever panel happened to be open.
+ */
+function confirmation(): HTMLElement | null {
+  const found = Array.from(harness.container.querySelectorAll<HTMLElement>('[role="dialog"]')).find(
+    (node) => node.textContent?.includes('?'),
+  )
+  return found ?? null
+}
+
+/**
+ * Answer the open confirmation by pressing the control that names the action.
+ *
+ * Pressed through the same DOM a user would, rather than by resolving the
+ * primitive's promise: the point of these cases is that the *button* asks before
+ * it destroys, so reaching past the dialog would assert nothing about the wiring.
+ */
+async function confirmDestructiveAction(label: string): Promise<void> {
+  await act(async () => {
+    await Promise.resolve()
+  })
+  const panel = confirmation()
+  if (!panel) throw new Error(`no confirmation was asked before "${label}"`)
+  const commit = Array.from(panel.querySelectorAll('button')).find(
+    (node) => node.textContent === label,
+  )
+  if (!commit) throw new Error(`the confirmation has no "${label}" control`)
+  await act(async () => {
+    ;(commit as HTMLButtonElement).click()
+  })
+  await flush()
+}
+
 /** Put a document with real pixels behind it into the live store. */
 function loadLiveDocument(doc = createDoc({ source: SOURCE })): void {
   const assetId = doc.source?.assetId ?? ''
@@ -251,6 +288,10 @@ describe('the session the editor offers', () => {
     await act(async () => {
       button('Discard').click()
     })
+    // Discarding a stored photo has no undo stack behind it, so it asks first. The
+    // button below — "Both show the user what is going before it happens" — used to
+    // be true only of its label; it is now a dialog you have to answer.
+    await confirmDestructiveAction('Discard session')
     await waitFor(() => vi.mocked(clearSession).mock.calls.length > 0)
     expect(vi.mocked(clearSession)).toHaveBeenCalledTimes(1)
     // The mirror is the only other copy of the document, so discarding has to take
@@ -368,6 +409,7 @@ describe('a document that cannot be rendered', () => {
       await act(async () => {
         startOver.click()
       })
+      await confirmDestructiveAction('Start over')
       await flush()
       expect(vi.mocked(clearSession)).toHaveBeenCalledTimes(1)
       expect(router.state.location.pathname).toBe('/editor')

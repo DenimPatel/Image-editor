@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createDoc } from '../../model/defaults'
+import { attachUnloadFlush, createAutosave } from './autosave'
 import type { Doc } from '../../model/types'
 import {
   MIRROR_FOREVER_MAX_BYTES,
@@ -241,6 +242,96 @@ describe('writeMirror / readMirror', () => {
     writeMirror(docFor('a'))
     clearMirror()
     expect(readMirror()).toBeNull()
+  })
+})
+
+describe('the mirror and the durable row are written in one breath', () => {
+  /**
+   * The ordering the whole mirror exists for.
+   *
+   * The spec this came from says the mirror must never be *newer* than the store; the
+   * shipped design is deliberately the other way round, and it has to be. A mirror
+   * that lagged the row would be redundant, because a reload would then read the row
+   * anyway. The mirror exists for the reload that lands inside the debounce window,
+   * where the IndexedDB transaction died with the page. So the invariant worth
+   * pinning is the ordering — the mirror is stamped *first*, on the same throttle, and
+   * can only ever be ahead of the durable row — and that is what `run` does.
+   *
+   * Asserted here, on the mirror's own test file, because the ordering is the mirror's
+   * reason to exist; `autosave.test.ts` covers the scheduler's own timing.
+   */
+  function recorder() {
+    const order: string[] = []
+    return {
+      order,
+      deps: {
+        save: async () => {
+          order.push('save')
+          return 'ok' as const
+        },
+        mirror: () => order.push('mirror'),
+      },
+    }
+  }
+
+  it('stamps the mirror before the durable write starts, in the same throttle', async () => {
+    vi.useFakeTimers()
+    try {
+      const { order, deps } = recorder()
+      const autosave = createAutosave(deps, { debounceMs: 1000, maxWaitMs: 5000 })
+
+      autosave.schedule()
+      await vi.advanceTimersByTimeAsync(1000)
+      autosave.dispose()
+
+      expect(order).toEqual(['mirror', 'save'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stamps it exactly once per write, including on an unload flush', async () => {
+    // Twice would be two `setItem` calls per teardown for the same document, which is
+    // the one cost the mirror's quota budget cannot absorb silently.
+    vi.useFakeTimers()
+    try {
+      const { order, deps } = recorder()
+      const autosave = createAutosave(deps, { debounceMs: 1000, maxWaitMs: 5000 })
+
+      autosave.schedule()
+      const detach = attachUnloadFlush(window, () => void autosave.flush())
+      await autosave.flush()
+      await vi.advanceTimersByTimeAsync(1000)
+      detach()
+      autosave.dispose()
+
+      expect(order.filter((entry) => entry === 'mirror')).toHaveLength(1)
+      expect(order).toEqual(['mirror', 'save'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a mirror that throws does not stop the durable write', async () => {
+    // The mirror is a safety net, so it must never be the reason a save fails — and
+    // a blocked or full `localStorage` throws exactly that way.
+    const order: string[] = []
+    const autosave = createAutosave(
+      {
+        save: async () => {
+          order.push('save')
+          return 'ok' as const
+        },
+        mirror: () => {
+          throw new DOMException('denied', 'SecurityError')
+        },
+      },
+      { debounceMs: 0, maxWaitMs: 0 },
+    )
+    autosave.schedule()
+    await autosave.flush()
+    autosave.dispose()
+    expect(order).toEqual(['save'])
   })
 })
 

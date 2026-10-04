@@ -456,7 +456,9 @@ test.describe('a watermark is reachable, not just creatable', () => {
       })
       .toBe(true)
 
-    // And it can be removed, which it also could not before.
+    // And it can be removed, which it also could not before. One press, no
+    // question: `removeLayer` pushes its own undo step, so Undo brings the mark
+    // back and a dialog would be a second decision about recoverable work.
     await panel.getByRole('button', { name: 'Delete layer' }).click()
     await expect
       .poll(async () => (await readDoc()).layers.filter((l) => l.kind === 'watermark').length)

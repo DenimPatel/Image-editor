@@ -256,3 +256,128 @@ describe('attachUnloadFlush', () => {
     expect(flush).not.toHaveBeenCalled()
   })
 })
+
+describe('cancel', () => {
+  it('drops a write that has not started, which is what a replacement needs', async () => {
+    // "New image" replaces the document and deletes its stored row. A debounce still
+    // armed for the *old* document would then commit that row again, and the reload
+    // would offer back the photograph the user just replaced — which is the defect
+    // this was added for, one layer down from where it used to be fixed.
+    const { autosave, stats } = harness({ debounceMs: 1000, maxWaitMs: 5000 })
+    autosave.schedule()
+    expect(autosave.pending()).toBe(true)
+
+    autosave.cancel()
+
+    expect(autosave.pending()).toBe(false)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(stats.saves).toBe(0)
+    autosave.dispose()
+  })
+
+  it('leaves the scheduler alive, so the next document is still saved', () => {
+    // `dispose()` would have been the wrong tool here: it closes the scheduler for
+    // the life of the editor, and the document the user picks next would never be
+    // saved at all. That failure is silent — nothing on screen says "your next
+    // photo is not being kept" — so it is asserted rather than assumed.
+    const { autosave, stats } = harness({ debounceMs: 10, maxWaitMs: 50 })
+    autosave.schedule()
+    autosave.cancel()
+
+    autosave.schedule()
+    expect(autosave.pending()).toBe(true)
+    void autosave.flush()
+    expect(stats.saves).toBe(1)
+    autosave.dispose()
+  })
+
+  it('leaves a write already in flight alone, and lets the follow-up through', async () => {
+    // A transaction that has been dispatched cannot be recalled, and killing the
+    // reference would only stop the replacement's own write from being scheduled.
+    const { autosave, stats, settle } = harness({ debounceMs: 10, maxWaitMs: 10 }, true)
+    autosave.schedule()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(stats.saves).toBe(1)
+
+    autosave.cancel()
+    autosave.schedule()
+    settle()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(stats.saves).toBe(2)
+    settle()
+    await vi.advanceTimersByTimeAsync(20)
+    expect(stats.saves).toBe(2)
+    autosave.dispose()
+  })
+
+  it('drops the follow-up write a queued edit would fire behind an in-flight one', async () => {
+    // The data-loss path this closes, at the layer it actually lives at.
+    //
+    // `run()` re-enters itself when `queued` is set: an edit that lands *while* a
+    // write is in flight marks it, and the next line after the in-flight write
+    // settles fires exactly one more write. "New image" replaces the document and
+    // then deletes the stored row — so with the replacement's edits still queued,
+    // that follow-up write commits the row a moment later, and the replaced
+    // photograph is back in IndexedDB. Nothing wrote it afterwards, so it stayed.
+    //
+    // `cancel()` used to return early whenever a write was in flight, on the
+    // reasonable-sounding grounds that an in-flight transaction cannot be recalled.
+    // That reasoning is about the *current* write and says nothing about the queued
+    // one, which is exactly the one that lands after the delete.
+    const { autosave, stats, settle } = harness({ debounceMs: 10, maxWaitMs: 10 }, true)
+    autosave.schedule()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(stats.saves).toBe(1)
+
+    // The edit that arrives mid-write and arms the follow-up.
+    autosave.schedule()
+    autosave.cancel()
+    settle()
+    await vi.advanceTimersByTimeAsync(50)
+
+    expect(stats.saves).toBe(1)
+    autosave.dispose()
+  })
+
+  it('idle() does not resolve until a write already in flight has settled', async () => {
+    // Without this the caller deletes the stored row in the same tick and loses the
+    // race: the transaction `cancel()` could not recall commits *after* the delete,
+    // and the replaced photograph's row is recreated by the gesture that replaced
+    // it. `replaceDocument` awaits `idle()` before `forgetStoredDocument` for
+    // precisely this ordering, and this is the assertion that makes the ordering
+    // load-bearing rather than incidental.
+    const { autosave, stats, settle } = harness({ debounceMs: 10, maxWaitMs: 10 }, true)
+    autosave.schedule()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(stats.saves).toBe(1)
+
+    autosave.cancel()
+    let resolved = false
+    const waiting = autosave.idle().then(() => {
+      resolved = true
+    })
+    await vi.advanceTimersByTimeAsync(50)
+    expect(resolved).toBe(false)
+
+    settle()
+    await waiting
+    expect(resolved).toBe(true)
+    autosave.dispose()
+  })
+
+  it('idle() resolves immediately when nothing is in flight, and after dispose', async () => {
+    // `await`-ed from a click handler on the common path, so a promise that only
+    // settles on the next write would hang the replacement for a document that has
+    // never been saved.
+    const { autosave } = harness({ debounceMs: 10, maxWaitMs: 10 })
+    await expect(autosave.idle()).resolves.toBeUndefined()
+    autosave.dispose()
+    await expect(autosave.idle()).resolves.toBeUndefined()
+  })
+
+  it('does nothing on a disposed scheduler', () => {
+    const { autosave } = harness({ debounceMs: 10, maxWaitMs: 10 })
+    autosave.dispose()
+    expect(() => autosave.cancel()).not.toThrow()
+  })
+})

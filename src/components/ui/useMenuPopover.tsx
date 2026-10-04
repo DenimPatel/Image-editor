@@ -24,6 +24,17 @@ export type MenuItem = {
    */
   icon?: IconComponent
   /**
+   * Why this row cannot be pressed right now, as an accessible *description*.
+   *
+   * `disabled` alone is a dead control: nothing on screen says whether the app is
+   * broken or the row is waiting for something, and the two need opposite
+   * reactions from the user. The text is rendered visually hidden and pointed at by
+   * `aria-describedby`, so it is announced after the label rather than read as a
+   * second label — a row that said its reason in its own name would break
+   * WCAG 3.2.4, which is the same defect the Compare toggle had.
+   */
+  description?: string
+  /**
    * Rows sharing a group are one block, and a change of group puts a
    * `role="separator"` between them.
    *
@@ -177,6 +188,7 @@ export function useMenuPopover({ label, items }: UseMenuPopoverOptions) {
           {items.map((item, index) => {
             const previous = items[index - 1]
             const separated = previous !== undefined && previous.group !== item.group
+            const descriptionId = item.description ? `${menuId}-${item.id}-why` : undefined
             return (
               <div key={item.id} className={styles.menuGroup}>
                 {separated ? <span role="separator" className={styles.menuSeparator} /> : null}
@@ -185,6 +197,7 @@ export function useMenuPopover({ label, items }: UseMenuPopoverOptions) {
                   role="menuitem"
                   disabled={item.disabled}
                   aria-disabled={item.disabled || undefined}
+                  aria-describedby={descriptionId}
                   className={styles.menuItem}
                   ref={(node) => {
                     buttonRefs.current[index] = node
@@ -201,6 +214,14 @@ export function useMenuPopover({ label, items }: UseMenuPopoverOptions) {
                   )}
                   <span className={styles.menuItemLabel}>{item.label}</span>
                 </button>
+                {item.description ? (
+                  // Visually hidden rather than omitted: the reason is the point of
+                  // disabling the row, and a sighted user gets it from the same
+                  // sentence on the toast the store raises when the reason changes.
+                  <span id={descriptionId} className={styles.menuItemDescription}>
+                    {item.description}
+                  </span>
+                ) : null}
               </div>
             )
           })}

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createTextLayer } from '../features/layers/factory'
 import { createDoc, DOC_SCHEMA } from '../model/defaults'
 import { liveAssetIds, structurallyEqual, useDocStore } from './docStore'
 
@@ -302,5 +303,93 @@ describe('liveAssetIds', () => {
     state().undo()
     state().redo()
     expect([...liveAssetIds()].sort()).toEqual(['one', 'two'])
+  })
+})
+
+describe('a fresh source replaces rather than merges', () => {
+  /**
+   * The singleton is what both the import path and a replacement go through, and the
+   * difference between "open a new photograph" and "open a second photograph with the
+   * first one's edits still on it" is one call to `load`. These are the properties
+   * that call has to hold for a replacement to mean anything: nothing of the old
+   * document survives it, in the document or in the history.
+   */
+  const source = (assetId: string, name: string) => ({
+    assetId,
+    width: 4,
+    height: 4,
+    name,
+    mime: 'image/png',
+  })
+
+  it('drops the source, the layers, the edits and the undo stack', () => {
+    state().load(
+      createDoc({
+        source: source('asset_a', 'a.png'),
+        layers: [createTextLayer('first document')],
+      }),
+    )
+    state().update((current) => ({ ...current, adjust: { ...current.adjust, exposure: 0.5 } }), {
+      key: 'exposure',
+    })
+    expect(state().past).toHaveLength(1)
+
+    state().load(createDoc({ source: source('asset_b', 'b.jpg') }))
+
+    const after = state()
+    expect(after.present.source?.assetId).toBe('asset_b')
+    // A default document's layers and adjustments, not the previous one's. Asserted
+    // against `createDoc()` rather than a literal, because the default *is* what
+    // `src/model/defaults.ts` says it is and a hard-coded `[]` would go on passing
+    // after the default changed.
+    expect(after.present.layers).toEqual(createDoc().layers)
+    expect(after.present.adjust).toEqual(createDoc().adjust)
+    // No history: there is nothing to undo *to*. That is why the confirmation in
+    // front of a replacement says the edits cannot come back, rather than promising
+    // that Ctrl+Z will bring them.
+    expect(after.past).toHaveLength(0)
+    expect(after.future).toHaveLength(0)
+    expect(after.revision).toBeGreaterThan(1)
+  })
+
+  it('a document with no source is the empty editor, and is not a photograph', () => {
+    // What a replacement leaves behind, and what the editor's entry decision reads as
+    // `no-document`: the import screen's answer rather than a broken photo.
+    state().load(createDoc())
+    const after = state().present
+    expect(after.source).toBeNull()
+    expect(after.layers).toEqual([])
+    expect(after.geometry.crop).toEqual(createDoc().geometry.crop)
+    expect([...liveAssetIds()]).toEqual([])
+  })
+
+  it('releases the replaced source from the live set, so its pixels can be closed', () => {
+    // `assetStore.prune(liveAssetIds())` is what actually frees the old bitmap, and it
+    // only works if the replacement really did drop the reference. A `load` that
+    // merged would leave a full-resolution photograph pinned for the life of the tab.
+    state().load(createDoc({ source: source('asset_a', 'a.png') }))
+    expect([...liveAssetIds()]).toEqual(['asset_a'])
+    state().load(createDoc({ source: source('asset_b', 'b.png') }))
+    expect([...liveAssetIds()]).toEqual(['asset_b'])
+  })
+
+  it('resuming replaces too, because `loadUnknown` is the same door', () => {
+    // The resume path adopts a document written by an older build and goes through
+    // `load`, so it replaces the history as well. That is right rather than
+    // convenient: a resumed session has no undo stack to carry, and keeping the
+    // abandoned document on `past` would pin its pixels in the live set for the rest
+    // of the tab. Asserted because it is the same property the replacement depends
+    // on, reached by a different caller.
+    state().load(createDoc({ source: source('asset_a', 'a.png') }))
+    state().update((current) => ({ ...current, adjust: { ...current.adjust, exposure: 0.5 } }), {
+      key: 'exposure',
+    })
+
+    expect(state().loadUnknown(createDoc({ source: source('asset_b', 'b.png') }))).toBe(true)
+
+    const after = state()
+    expect(after.present.source?.assetId).toBe('asset_b')
+    expect(after.past).toHaveLength(0)
+    expect([...liveAssetIds()]).toEqual(['asset_b'])
   })
 })

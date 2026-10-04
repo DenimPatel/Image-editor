@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { EditorCanvas } from '../components/canvas/EditorCanvas'
 import { EditorTopBar } from '../components/editor/EditorTopBar'
 import { HelpOverlay } from '../components/editor/HelpOverlay'
@@ -7,8 +7,10 @@ import { ImportScreen, OfflineBanner } from '../components/editor/ImportScreen'
 import { JobProgressBar } from '../components/editor/JobProgressBar'
 import { PresetPopover } from '../components/editor/PresetPopover'
 import { ResumeSessionCard } from '../components/editor/ResumeSessionCard'
+import { countEdits } from '../components/editor/resumeSummary'
 import { ToolSurface } from '../components/editor/ToolSurface'
 import { ToolTabBar } from '../components/editor/ToolTabBar'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CloseGlyph } from '../components/ui/icons'
 import { IconButton } from '../components/controls/IconButton'
 import { ToastStack } from '../components/controls/Toast'
@@ -16,7 +18,10 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useAppearance } from '../hooks/useAppearance'
 import { autoAdjust, autoChangedKeys, buildHistogram } from '../lib/auto'
 import { describeUnsupported } from '../lib/accept'
+import { confirmDestructive } from '../lib/confirm'
 import { decodeImageBlob, decodeImageFile, decodeImageUrl, ImageTooLargeError } from '../lib/decode'
+import { confirmThen, deletePresetRequest, discardSessionRequest } from '../lib/destructive'
+import { editorEntryTool, newImageRequest, resolveEditorEntry } from '../lib/editorEntry'
 import {
   attachUnloadFlush,
   createAutosave,
@@ -24,6 +29,7 @@ import {
   AUTOSAVE_MAX_WAIT_MS,
   type Autosave,
 } from '../lib/persist/autosave'
+import { forgetStoredDocument } from '../lib/persist/forget'
 import {
   clearMirror,
   readMirror,
@@ -44,7 +50,6 @@ import {
 } from '../lib/persist/recipes'
 import { bytesForSource } from '../lib/persist/sourceBytes'
 import {
-  clearSession,
   createThumbnail,
   loadSession,
   saveSession,
@@ -57,10 +62,8 @@ import { assetStore } from '../model/assetsSingleton'
 import { croppedSize } from '../model/selectors'
 import { renderExportCanvas } from '../render/exportCanvas'
 import { liveAssetIds, useDocStore } from '../store/docStore'
-import { TOOL_IDS, useUiStore, type ToolId } from '../store/uiStore'
+import { TOOL_IDS, useUiStore } from '../store/uiStore'
 import styles from '../components/editor/editor.module.css'
-
-const VALID_TOOLS = new Set<string>(TOOL_IDS)
 
 type ResumeState = {
   /** Untrusted: an IndexedDB row can have been written by any older build. */
@@ -73,6 +76,11 @@ type ResumeState = {
 /** The renderer needs real pixels, not just a closable resource. */
 function isRenderableAsset(asset: unknown): asset is ImageBitmap {
   return typeof ImageBitmap !== 'undefined' && asset instanceof ImageBitmap
+}
+
+/** Whether the asset store can hand this id's pixels back as something drawable. */
+function isRenderableSource(assetId: string): boolean {
+  return isRenderableAsset(assetStore.get(assetId))
 }
 
 /**
@@ -119,6 +127,7 @@ const SAVE_MESSAGES: Record<Exclude<SaveResult, 'ok'>, string> = {
 
 export default function Editor() {
   const navigate = useNavigate()
+  const location = useLocation()
   // The editor is a separate route from the Hub, and `Nav` is Hub-only, so
   // without this the editor depends entirely on the pre-paint script: a change
   // made in another tab, or by the appearance panel opening and closing, would
@@ -127,7 +136,6 @@ export default function Editor() {
   // while it is open — is what makes the editor a second, independent writer
   // of the same idempotent DOM attributes. It costs one `useEffect`.
   useAppearance()
-  const { tool } = useParams<{ tool?: string }>()
   const [fileName, setFileName] = useState('image')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -146,9 +154,37 @@ export default function Editor() {
   const sourceAssetId = useDocStore((state) => state.present.source?.assetId) ?? null
   const source = bitmapFor(sourceAssetId)
 
+  // Which tool this door named, and which document it is allowed to open. Both
+  // answers come out of one call so the tool a deep link asked for cannot be
+  // honoured on one screen and dropped on the other.
+  //
+  // `location.pathname` rather than the `:tool` param, because `/editor` and
+  // `/editor/<tool>` are two routes and the param is absent on one of them — and
+  // `useParams` answering "no tool" for `/editor` is indistinguishable from
+  // answering it for `/editor/nonsense`. The pathname is the whole address either
+  // way.
+  const entry = resolveEditorEntry({
+    tool: editorEntryTool(location.pathname, TOOL_IDS),
+    held: { assetId: sourceAssetId },
+    holds: isRenderableSource,
+  })
+
+  // `source-unavailable` is the third answer and it never reaches a branch below:
+  // `bitmapFor` above has already raised for it, by design and with a message that
+  // names the asset, because a document whose pixels are gone still holds every edit
+  // in it and the honest response is to say so rather than to show a different
+  // photograph. Naming the reason here keeps that rule in the same file as the
+  // decision that produced it.
+  //
+  // The `!source` half of the condition below is not a second opinion on that
+  // decision — it is how TypeScript is told what `entry.action === 'open'` already
+  // implies, because the render needs the pixels and not the verdict. `resolve`
+  // returned `open` only when `isRenderableSource` accepted the id, and
+  // `isRenderableSource` and `bitmapFor` ask the asset store the same question.
+
   useEffect(() => {
-    if (tool && VALID_TOOLS.has(tool)) useUiStore.getState().setActiveTool(tool as ToolId)
-  }, [tool])
+    if (entry.tool) useUiStore.getState().setActiveTool(entry.tool)
+  }, [entry.tool])
 
   const reportSave = useCallback(
     async (result: SaveResult) => {
@@ -337,13 +373,142 @@ export default function Editor() {
     }
   }, [resume, setBusy])
 
-  const handleDiscard = useCallback(() => {
-    void clearSession()
-    // Discarding has to take the mirror with it: it is the only other copy of
-    // the document, and leaving it behind would re-offer what was just thrown
-    // away.
-    clearMirror()
+  const handleDiscard = useCallback(async () => {
+    // The card shows the photo and the edit count and offers exactly two buttons,
+    // and pressing the wrong one throws away work the user cannot see. It is the
+    // only control in the app that deletes a stored document, so it asks — there
+    // is no undo stack behind this page to fall back on.
+    const edits = countEdits(resume?.doc)
+    await confirmThen(discardSessionRequest(edits), () => {
+      void forgetStoredDocument().then(() => {
+        setResume(null)
+      })
+    })
+  }, [resume])
+
+  /**
+   * Where focus goes after a replacement, on both paths.
+   *
+   * `ConfirmDialog` returns focus to whatever opened it, but a replacement unmounts
+   * the entire top bar — so the node the focus would return to is gone and the
+   * browser falls back to `<body>`. A keyboard user who pressed Enter on a menu row
+   * is then tabbing from the top of an empty document with no landmark announced
+   * and no way to tell what changed. It is the same on the confirming path, because
+   * the More menu goes with the photograph it was opening.
+   *
+   * `<main id="editor-main">` is the answer, and it is the same target the skip
+   * link already points at. It is rendered by both branches of the page, so this
+   * focuses the region that is on screen rather than reaching for an element that
+   * only exists in one of them.
+   *
+   * `requestAnimationFrame` rather than a synchronous call, because `load()` has
+   * only been *called* by the time this effect runs: the effect above it is keyed on
+   * `entry.action`, so React has committed the branch swap, but the dialog's own
+   * restore has not necessarily run yet and both would otherwise race for the same
+   * focus. The frame defers past it.
+   */
+  const focusAfterReplace = useRef(false)
+
+  useEffect(() => {
+    if (!focusAfterReplace.current) return
+    focusAfterReplace.current = false
+    const frame = requestAnimationFrame(() => {
+      document.getElementById('editor-main')?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [entry.action])
+
+  /**
+   * Hand the document back to the import screen.
+   *
+   * This is the exit D-01 said did not exist, and the order of the four steps is
+   * the whole of it:
+   *
+   * 1. **Stop the old document from being written, and wait for the write already
+   *    in flight.** A debounce still armed for it would commit the row this gesture
+   *    is about to delete, which is precisely how the replaced photo came back on
+   *    the next reload. `cancel()` drops that armed work, and it cannot recall a
+   *    write already dispatched — so `idle()` is awaited before the delete, because
+   *    a delete issued in the same tick loses the race and the row lands afterwards.
+   *    Nothing schedules a compensating write: the effect that schedules returns
+   *    early with no source, and nothing else names the old document.
+   * 2. **Delete both durable copies.** Not the mirror alone, and not the row alone.
+   *    A mirror without its row is *inert* — `resolveResumableSession` returns null
+   *    when the stored row is missing, because a mirror carries edits and no pixels
+   *    and so cannot resume on its own. A **row without its mirror is the dangerous
+   *    half**: it is returned as-is, so a reload after clearing only the mirror
+   *    offers the photograph the user just replaced. Both go, because the pair is
+   *    only ever read as a pair, and a half-cleared pair is a state neither writer
+   *    has an answer for. `forgetStoredDocument` is the only place that pair is
+   *    cleared.
+   * 3. **Replace rather than merge.** `load()` — not `update()` — so there is no
+   *    undo entry to press back through, the layers are a fresh document's and the
+   *    old asset is unreferenced. This is why the confirmation above names a count
+   *    it cannot then honour with Ctrl+Z.
+   * 4. **Close the old pixels.** `prune` runs against the new document's live set,
+   *    so the replaced photo's bitmap is released instead of pinned by a history
+   *    that no longer mentions it.
+   *
+   * The route is not changed. The state after this is exactly the state a first
+   * visit is in — no document, no stored row, no mirror — so a reload reaches the
+   * same import screen, and a URL that said "fresh" would only add a Back button
+   * that lands on the same empty editor.
+   *
+   * It is `async` because of step 1 and only step 1. Everything else is
+   * synchronous on purpose: the store replacement and the UI reset below must land
+   * in the same frame the user pressed the button, or the editor would still be
+   * showing the old photograph while the delete ran.
+   */
+  const replaceDocument = useCallback(async () => {
+    autosaveRef.current?.cancel()
+    focusAfterReplace.current = true
+    useDocStore.getState().load(createDoc())
+    assetStore.prune(liveAssetIds())
+    thumbRef.current = null
+    bytesRef.current = null
+    setFileName('image')
+    setError(null)
     setResume(null)
+    setPresetOpen(false)
+    // A tool panel is a panel over a photograph. There is no photograph.
+    useUiStore.getState().setActiveTool(null)
+    // Last, and awaited. The write `cancel()` could not recall has to land before
+    // the delete, not after it, or the replaced photograph's row is recreated by
+    // the very gesture that replaced it. Nothing schedules a write for the empty
+    // document that replaced it, so there is no second race to close.
+    await autosaveRef.current?.idle()
+    await forgetStoredDocument()
+  }, [])
+
+  /**
+   * `New image`, with the question asked only when there is something to lose.
+   *
+   * `past.length` is read at press time rather than being tracked in state, so the
+   * number in the dialog cannot be stale: the dialog's own copy of the count would
+   * be a second truth about the document.
+   */
+  const handleNewImage = useCallback(async () => {
+    const request = newImageRequest(useDocStore.getState().past.length)
+    if (!request) {
+      await replaceDocument()
+      return
+    }
+    if (await confirmDestructive(request)) await replaceDocument()
+  }, [replaceDocument])
+
+  /**
+   * "Reset all edits" — one press, no question.
+   *
+   * `reset()` is its own undo step (`docStore.reset` closes any open interaction
+   * first), so `Ctrl+Z` brings the whole edit stack back *and* the stack that would
+   * bring the rest back — it is the most recoverable control in the app. Undo is in
+   * the top bar of the same frame as this row, so a dialog here is a second decision
+   * about work the user can already get back, and it is asked on every press rather
+   * than once. `destructive.ts` names the four controls that do ask, and this is not
+   * one of them.
+   */
+  const handleReset = useCallback(() => {
+    useDocStore.getState().reset()
   }, [])
 
   useEffect(() => {
@@ -451,10 +616,17 @@ export default function Editor() {
   )
 
   const handleDeletePreset = useCallback(
-    (name: string) => {
-      deletePreset(name)
-      setPresetNames(listPresets())
-      pushToast(`Deleted “${name}”`, 'info')
+    async (name: string) => {
+      // A preset is a recipe the user typed, it lives only in this browser's
+      // `localStorage`, and applying it is an *edit* — so it is one undo step and
+      // this delete is permanent with no history to reach for. It asks for that
+      // reason, and unlike "Reset all edits" it also asks because there is no undo
+      // answer at all.
+      await confirmThen(deletePresetRequest(name), () => {
+        deletePreset(name)
+        setPresetNames(listPresets())
+        pushToast(`Deleted “${name}”`, 'info')
+      })
     },
     [pushToast],
   )
@@ -479,7 +651,7 @@ export default function Editor() {
         Skip to the canvas
       </a>
       <JobProgressBar />
-      {!source ? (
+      {entry.action !== 'open' || !source ? (
         <>
           <header className={styles.topBar}>
             <IconButton label="Back to home" onClick={() => navigate('/')}>
@@ -507,7 +679,7 @@ export default function Editor() {
                       updatedAt={resume.updatedAt}
                       doc={resume.doc}
                       onResume={() => void handleResume()}
-                      onDiscard={handleDiscard}
+                      onDiscard={() => void handleDiscard()}
                     />
                   ) : undefined
                 }
@@ -521,7 +693,8 @@ export default function Editor() {
             title={fileName}
             onClose={() => navigate('/')}
             onDone={openExport}
-            onReset={() => useDocStore.getState().reset()}
+            onReset={handleReset}
+            onNewImage={() => void handleNewImage()}
             onCopyEdits={() => void handleCopyEdits()}
             onPasteEdits={() => void handlePasteEdits()}
             onSavePreset={handleOpenPresets}
@@ -564,6 +737,10 @@ export default function Editor() {
       )}
       <ToastStack />
       <HelpOverlay />
+      {/* Mounted for the whole route rather than where it is needed: the
+          confirmation is raised from a `useCallback` in a menu row, which has no
+          business owning a dialog. It renders nothing until something asks. */}
+      <ConfirmDialog />
     </div>
   )
 }

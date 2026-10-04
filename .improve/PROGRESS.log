@@ -5,3 +5,6 @@
 2026-10-04T03:57Z | IMP-042 | FAIL attempt 1 (two-gradient mask composites opaque mid-scroll, delta 1/1/1; e2e asserted a declaration not paint) | -
 2026-10-04T04:35Z | IMP-042 | DONE attempt 2 (13 tabs reachable at 390px, Background whole; mid-scroll fade 1/1/1 -> 74/0/137) | f7762ff
 2026-10-04T05:35Z | IMP-144 | DONE (second 30-shot baseline at true defaults, both sets labelled, REPO_PROFILE section 11) | c205e2e
+2026-10-04T07:41Z | HEADLINE | FAIL attempt 1 (IMP-002 c1+c3 UNMET; 4 false claims; real data-loss path; focus ring missing) | -
+2026-10-04T09:34Z | HEADLINE | FAIL attempt 2 (confirmation fatigue: all 7 actions prompt incl. undoable; UX rejected by reviewer) | -
+2026-10-04T10:53Z | HEADLINE | PASS attempt 3 (irreversible asks / undoable acts; data-loss fix verified; 7/7 closed) | 79d8f2a

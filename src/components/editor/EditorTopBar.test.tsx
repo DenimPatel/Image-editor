@@ -22,6 +22,7 @@ function render(props: Partial<Parameters<typeof EditorTopBar>[0]> = {}) {
       onSavePreset={noop}
       onInfo={noop}
       onShowHelp={noop}
+      onNewImage={noop}
       canPaste
       {...props}
     />,
@@ -71,15 +72,59 @@ describe('D8-F11: the overflow menu is a real popover', () => {
     expect(items().map((item) => item.textContent)).toEqual([
       'Keyboard shortcuts',
       'Appearance…',
+      'New image',
       'Reset all edits',
       'Copy edits',
       'Paste edits',
       'Save preset…',
       'Photo details',
     ])
-    const paste = items()[4]
-    expect(paste.disabled).toBe(true)
-    expect(paste.getAttribute('aria-disabled')).toBe('true')
+    // Located by name, not by position: an index is a statement about the array,
+    // and the array is not what this is about.
+    const paste = items().find((item) => item.textContent === 'Paste edits')
+    expect(paste?.disabled).toBe(true)
+    expect(paste?.getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('offers New image, in its own group, with a reason when it cannot be pressed', () => {
+    // The row that closes D-01. Its name is fixed by the acceptance criterion, so
+    // it is asserted exactly rather than by prefix: an accessible name that drifts
+    // by an ellipsis or a trailing "…" breaks every keyboard route to it.
+    const onNewImage = vi.fn()
+    render({ onNewImage })
+    open()
+    const item = items().find((node) => node.textContent === 'New image')
+    expect(item?.getAttribute('role')).toBe('menuitem')
+    expect(item?.getAttribute('aria-disabled')).toBeNull()
+    act(() => item?.click())
+    expect(onNewImage).toHaveBeenCalledOnce()
+    expect(menu()).toBeNull()
+
+    // Its own group: it is the only row that is neither an editor setting nor an
+    // edit to this photo, so it is separated from both rather than filed under
+    // either. Three separators for eight rows in three blocks.
+    render({ onNewImage })
+    open()
+    expect(document.querySelectorAll('[role="separator"]')).toHaveLength(3)
+  })
+
+  it('keeps New image in the menu while an export is running, and says why', () => {
+    // A row that disappears while the user is working reads as a broken menu. A row
+    // that greys out with no stated reason is the same dead end as a dead button,
+    // so the reason travels as an accessible description rather than in the label.
+    render()
+    useUiStore.getState().setExportBusy(true)
+    open()
+    const item = items().find((node) => node.textContent === 'New image')
+    expect(item).toBeDefined()
+    expect(item?.disabled).toBe(true)
+    expect(item?.getAttribute('aria-disabled')).toBe('true')
+    const describedBy = item?.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy ?? '')?.textContent).toContain('export is running')
+    // The name still says only what the row does: a reason in the label would
+    // break WCAG 3.2.4, the defect the Compare toggle had.
+    expect(item?.textContent).toBe('New image')
   })
 
   it('opens the appearance panel, which is the only way to reach six settings', () => {
@@ -162,27 +207,36 @@ describe('D8-F11: the overflow menu is a real popover', () => {
     press(items()[2], 'ArrowDown')
     expect(document.activeElement).toBe(items()[3])
     press(items()[3], 'ArrowDown')
-    expect(document.activeElement).toBe(items()[5])
-    press(items()[5], 'ArrowDown')
+    expect(document.activeElement).toBe(items()[4])
+    // 'Paste edits' is disabled here, so focus steps over it rather than stopping
+    // on a control that cannot be pressed.
+    expect(document.activeElement).not.toBe(items()[5])
+    press(items()[4], 'ArrowDown')
     expect(document.activeElement).toBe(items()[6])
     press(items()[6], 'ArrowDown')
+    expect(document.activeElement).toBe(items()[7])
+    press(items()[7], 'ArrowDown')
     expect(document.activeElement).toBe(items()[0])
     press(items()[0], 'ArrowUp')
-    expect(document.activeElement).toBe(items()[6])
-    press(items()[6], 'Home')
+    expect(document.activeElement).toBe(items()[7])
+    press(items()[7], 'Home')
     expect(document.activeElement).toBe(items()[0])
     press(items()[0], 'End')
-    expect(document.activeElement).toBe(items()[6])
+    expect(document.activeElement).toBe(items()[7])
   })
 
-  it('ArrowDown three times lands on Paste edits when it is available', () => {
+  it('ArrowDown twice lands on New image', () => {
+    // The row's position is a design decision worth pinning: it is the third thing
+    // in the menu, after the editor's own settings and before anything that edits
+    // this photo, because it is neither.
     render()
     open()
+    // Focus is already on the first row when the menu opens, so the third row is
+    // two presses away.
     press(items()[0], 'ArrowDown')
     press(items()[1], 'ArrowDown')
-    press(items()[2], 'ArrowDown')
-    expect(document.activeElement).toBe(items()[3])
-    expect(items()[3].textContent).toBe('Copy edits')
+    expect(document.activeElement).toBe(items()[2])
+    expect(items()[2].textContent).toBe('New image')
   })
 
   it('Escape closes and hands focus back to the trigger', () => {

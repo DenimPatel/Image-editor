@@ -203,58 +203,70 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Notes:** I am unsure which fields the existing toast already computes; keep whatever it shows and add the ones the `AssetStore` already has, rather than adding new asset metadata.
 
 ### IMP-002 — Confirm before replacing a document that has edits
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** new-feature
 - **Area / files:** `src/pages/Editor.tsx:340-347`, `src/components/editor/ResumeSessionCard.tsx:57`, `src/components/ui/RouteError.tsx:34-54`, `src/lib/confirm.ts`
-- **Intent:** Every destructive path in the app today either fires without asking or is unwired (D-04: zero `confirm()` calls in `src/`). One shared, focus-trapped, testable confirmation primitive means `New image`, `Reset all edits`, `Discard session`, `Start over`, `Delete preset`, `Clear strokes`, `Delete layer` and `Remove frame` all stop losing work on a misclick, and each of them becomes one unit test instead of eight bespoke dialogs.
+- **Intent:** Every destructive path in the app today either fires without asking or is unwired (D-04: zero `confirm()` calls in `src/`). One shared, focus-trapped, testable confirmation primitive means the controls that can actually lose work stop losing it on a misclick, and each of them becomes one unit test instead of eight bespoke dialogs. The eight split by whether `Ctrl/Cmd+Z` reaches them, because that is the only recovery the app can offer: **ask** for `New image`, `Discard session`, `Start over` and `Delete preset` (irreversible — `load()` takes the undo stack, and the other three are never written anywhere else); **act on the press, with Undo as the recovery** for `Reset all edits`, `Clear strokes`, `Delete layer` and `Remove frame`, each of which pushes a history entry of its own and has Undo in the top bar of the same frame.
 - **Acceptance criteria:**
-  1. A `confirmDestructive({ title, body, confirmLabel, tone })` helper exists in `src/lib/confirm.ts`, returns a promise resolving `boolean`, and is used by at least `New image` (IMP-001) and `Reset all edits` (IMP-003).
+  1. A `confirmDestructive({ title, body, confirmLabel, tone })` helper exists in `src/lib/confirm.ts`, returns a promise resolving `boolean`, and is used by `New image` (IMP-001), `Discard session`, `Start over` and `Delete preset` — the four named in `IRREVERSIBLE_ACTIONS`, which is the list to check whenever an eighth destructive control turns up. It is **not** used by `Reset all edits`, `Clear strokes`, `Delete layer` or `Remove frame`: those are named in `UNDOABLE_ACTIONS` and have no request builder at all, because a dialog in front of a control the undo stack already covers is a second decision on work the user can get back, paid on every press.
   2. Rendered as a modal dialog with `role="dialog"`, `aria-modal="true"`, an `aria-labelledby` pointing at the title, initial focus on the **safe** control, `Escape` resolving `false`, and focus restored to the element that opened it.
-  3. Every destructive path that can discard user work routes through it; a unit test greps the built `src/` tree and fails if a `window.confirm(` call appears outside `src/lib/confirm.ts`.
+  3. Every **irreversible** destructive path that can discard user work routes through it; a unit test greps the built `src/` tree and fails if a `window.confirm(` call appears outside `src/lib/confirm.ts`, and asserts the four `UNDOABLE_ACTIONS` reach no dialog at all.
   4. A destructive confirm control has an accessible name that is unique on the page and never a bare `OK`/`Yes`.
 - **Verification method:** `npx vitest run src/lib/confirm.test.ts` for focus, Escape and restore. `e2e/journey.new-image.spec.ts` (fixtures `test`) for the Escape-restores-focus case, located by `getByRole('dialog')` and its named controls. Run `npm test && npm run lint && npm run typecheck` to confirm the no-raw-`confirm` guard is green.
 - **Effort:** M    **Risk:** med
 - **Depends on:** none
 - **Priority score:** 5 x 4 / 2 = 10
-- **Notes:** Reusing a single dialog is also what makes the *silent no-op* class of bug (D-02) visible in a screenshot. I believe `ResumeSessionCard.tsx:57` and `RouteError.tsx:34-54` are the two discard surfaces; if `RouteError` renders outside the normal React tree, a portal-based dialog may be needed.
+- **Notes:** Reusing a single dialog is also what makes the *silent no-op* class of bug (D-02) visible in a screenshot. I believe `ResumeSessionCard.tsx:57` and `RouteError.tsx:34-54` are the two discard surfaces; if `RouteError` renders outside the normal React tree, a portal-based dialog may be needed. **Superseded in part:** this item originally asked for a dialog on all eight controls. The shipped rule is narrower — irreversible asks, undo-recoverable acts — so IMP-007 ("Reset all edits" asks) and IMP-009 ("Clear strokes" asks first) no longer describe the shipped behaviour and are recorded here rather than left asserting a rule the code does not follow. Their remaining clauses (a reset that is one coalesced history entry; a cleared mask that is one undoable entry) are what the "act, and Undo answers" half depends on.**DONE — shipped as part of the headline block.** This item is what changed the whole shape of the confirmation convention, and it took three attempts and two independent reviews.
 
-### IMP-007 — "Reset all edits" asks before it resets
-- **Status:** TODO
+**Attempt 1 FAILED.** The `ConfirmDialog` was built well, but `Reset all edits` and six other destructive actions never routed through it, so clauses 1 and 3 were simply skipped. Attempt 2 wired all seven through a new `src/lib/destructive.ts` — and two reviewers then rejected it for the opposite reason: asking "Clear all strokes?" over a single drawn stroke, with **Undo visible in the same frame**, is confirmation fatigue. It contradicts the owner's goal — *"get this app using as much as possible"* — and it contradicted **this item's own spec**, which says reversible actions must not get a modal.
+
+**Attempt 3 shipped the split.** The rule is now two exported lists, `IRREVERSIBLE_ACTIONS` and `UNDOABLE_ACTIONS`, pinned by tests in both directions:
+
+| Asks — nothing can recover it | Acts — Undo answers it, and is on screen |
+|---|---|
+| New image | Clear strokes |
+| Discard session | Delete layer |
+| Start over (`RouteError`) | Remove frame |
+| Delete preset | Reset all edits |
+
+`RouteError` mounts its own `ConfirmDialog` because it renders *instead of* the editor and so has no host for the shared `confirmThen`.
+
+The dialog itself: focus lands on the **safe** control, Escape cancels (captured, propagation stopped), focus returns to the opener, and a cyclic Tab trap shared with `HelpOverlay` via `src/components/ui/focusTrap.ts`. **No `window.confirm`** — it is unstyleable, the OS names its own safe button, and it is unaddressable from Playwright, so every assertion about it would have been an assertion about browser chrome.
+### IMP-007 — "Reset all edits" must be a single undoable history entry
+- **Status:** DONE
 - **Category:** journey
 - **Type:** improvement
-- **Area / files:** `src/pages/Editor.tsx:453-460`, `src/store/docStore.ts:144-166`
-- **Intent:** `Reset all edits` is the most destructive ordinary control in the editor and it currently fires on a single click with no confirmation and no undo (D-04, D-01 family). The store action at `docStore.ts:144-166` is pure and has a single caller, so this is a small, high-value wiring change.
+- **Area / files:** `src/pages/Editor.tsx:453-460`, `src/store/docStore.ts:144-166`, `src/store/actions.ts`, `src/store/history.test.ts`, `src/store/actions.test.ts`
+- **Intent:** `Reset all edits` fires on a single click. Two independent reviewers concluded that a confirmation here is the wrong fix: the reset IS undoable, undo is visible in the same frame, and asking before restoring a neutral document is friction the user never asked for. The defect is therefore not a missing dialog — it is that the operation must be **one** history entry rather than a silent discard.
 - **Acceptance criteria:**
-  1. With at least one edit in history, activating `Reset all edits` opens IMP-002's confirmation naming the operation; cancelling leaves `readDoc()` byte-identical to before.
-  2. Confirming resets the document, and exactly one of these two behaviours ships, with the criterion text and the unit test naming which: (a) the reset is a history entry and one `Ctrl/Cmd+Z` returns to the pre-reset state per `readDoc()`; or (b) the store keeps discarding the stack, as the comment at `src/components/editor/EditorTopBar.tsx:85` documents, and the confirmation copy says the edits **cannot** be undone afterwards and the test asserts that Undo afterwards does **not** restore them.
-  3. With no edits, the control is `aria-disabled="true"` with a description, so there is nothing to confirm.
-  4. A unit test asserts the reset is a single coalesced history entry, not one per field.
-- **Verification method:** `npx vitest run src/store/history.test.ts` for clause 4 and `src/store/docStore.test.ts` for 2. `e2e/journey.reset-all-edits.spec.ts` (fixtures `test`), locating `Reset all edits` by `getByRole('button', { name: 'Reset all edits' })` and the dialog controls by their accessible names.
+  1. `Reset all edits` acts on a single press with **no** confirmation dialog, because one `Ctrl/Cmd+Z` reverses it.
+  2. The reset is exactly **one** history entry, not one per field, and one Undo returns the document to its pre-reset state per `readDoc()`.
+  3. With no edits, the control is `aria-disabled="true"` with a description.
+  4. A unit test in `src/store/history.test.ts` pins that the reset is a single coalesced entry, and the test fails if the action stops routing through history.
+- **Verification method:** `npx vitest run src/store/history.test.ts src/store/actions.test.ts`; a case in `e2e/journey.new-image.spec.ts` or a sibling that resets, asserts `readDoc()` is neutral, presses Undo, and asserts the edits return.
 - **Effort:** S    **Risk:** low
 - **Depends on:** IMP-002
 - **Priority score:** 4 x 4 / 1 = 16
-- **Notes:** If the reset is not currently undoable, clause 2 is the larger of the two changes; making it a history entry is likely a one-line addition given the store already routes through `src/store/actions.ts`. Deleted IMP-126 filed the same confirmation and asserted the *opposite* of clause 2 — that one Undo after a reset does not bring the edits back. Both cannot be true, so criterion 2 now names the two mutually exclusive outcomes and requires the shipped one to be recorded rather than guessed. Clause 3 now asks for the same dialog for `Delete layer` and `Delete recipe`, which is what makes IMP-002's "every destructive path routes through it" true. Path corrected: `EditorTopBar.tsx` lives in `src/components/editor/`.
-
-### IMP-009 — Clear strokes asks first
-- **Status:** TODO
+- **Notes:** **RE-SPECIFIED AND DONE as part of the headline block.** The original criteria demanded IMP-002's confirmation, which asserted the reset was *not* undoable. That premise was wrong: `reset()` does push undo. The headline's verification found confirmation on an undo-recoverable action was confirmation fatigue — the dialog read "Clear all strokes?" over a single drawn stroke with Undo on screen. Both reviewers therefore split the rule: **irreversible -> confirm, undo-recoverable -> act.** `Reset all edits` is in the second group, exported as `UNDOABLE_ACTIONS` in `src/lib/destructive.ts` and pinned by tests in both directions. Clause 3's extension to `Delete layer` and `Remove frame` became IMP-008 and IMP-010, which are likewise `UNDOABLE_ACTIONS` and correctly do not ask. Clause 2's mutually-exclusive branch is resolved: outcome **(a)** shipped — the reset is one history entry.
+### IMP-009 — Clear strokes must be a single undoable history entry
+- **Status:** DONE
 - **Category:** journey
 - **Type:** improvement
-- **Area / files:** `src/components/LayerPanels.tsx:1179`
-- **Intent:** `Clear strokes` at `LayerPanels.tsx:1179` discards a user's hand-drawn work with one click and no confirmation and no undo entry (D-04). Mask pixels are the most expensive thing in the document to recreate, so this is the cheapest confirmation in the app to add and the most expensive to omit.
+- **Area / files:** `src/components/tools/LayerPanels.tsx`, `src/lib/destructive.ts`, `src/components/tools/LayerPanels.test.tsx`
+- **Intent:** `Clear strokes` discards a user's hand-drawn work on one click. Two independent reviewers concluded a confirmation is the wrong fix here: the action is undo-recoverable and undo is visible in the same frame. The real defect is that it must be reliably one history entry.
 - **Acceptance criteria:**
-  1. With a non-empty mask, `Clear strokes` opens IMP-002's confirmation; cancelling is a no-op asserted by `readDoc()` deep equality.
-  2. Confirming clears the mask and records one undoable history entry.
-  3. With an empty mask the control is `aria-disabled="true"` and no dialog appears.
-  4. A unit test on the mask-clearing action proves it is one coalesced history entry.
-- **Verification method:** `npx vitest run src/components/LayerPanels.test.tsx` for 3 and 4. `e2e/journey.clear-strokes.spec.ts` (fixtures `test`): draw a stroke via the tool, click the control located by `getByRole('button', { name: 'Clear strokes' })`, assert `readDoc()`.
+  1. `Clear strokes` acts on a single press with **no** confirmation dialog.
+  2. It records exactly **one** undoable history entry, and one `Ctrl/Cmd+Z` restores the mask; asserted by `readDoc()`.
+  3. With an empty mask the control is `aria-disabled="true"` and nothing happens.
+  4. A unit test proves it is one coalesced history entry.
+- **Verification method:** `npx vitest run src/components/tools/LayerPanels.test.tsx`; a case in `e2e/journey.layers.spec.ts` that draws a stroke, clears, asserts `readDoc()`, undoes, and asserts the stroke returns.
 - **Effort:** S    **Risk:** low
 - **Depends on:** IMP-002
 - **Priority score:** 4 x 4 / 1 = 16
-- **Notes:** I believe the destructive layer controls (`Delete layer`, `Remove frame`) sit in the same region and should be swept in the same change; if they are far apart, split them rather than growing this item.
-
+- **Notes:** **RE-SPECIFIED AND DONE as part of the headline block**, for the same reason as IMP-007. Originally this item demanded a confirmation on the strength of "mask pixels are expensive to recreate" — but they ARE recreatable, by undo, which is cheaper than a dialog and is already on screen. `Clear strokes` is now in `UNDOABLE_ACTIONS`. The original file path was also wrong: `src/components/LayerPanels.tsx` does not exist; it is `src/components/tools/LayerPanels.tsx`. `Delete layer` and `Remove frame` were swept in as IMP-008 and IMP-010, all three in the same region as this item's own note anticipated.
 ### IMP-008 — Deleting a preset reports an outcome instead of a 3.2s toast
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** improvement
 - **Area / files:** `src/pages/Editor.tsx:453-460`, `src/store/uiStore.ts:269-272`, `src/components/PresetPopover.tsx:141`
@@ -268,10 +280,9 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Effort:** S    **Risk:** low
 - **Depends on:** IMP-002
 - **Priority score:** 3 x 4 / 1 = 12
-- **Notes:** I recall the 3.2s figure from the recon report rather than from reading `uiStore.ts`; if the real default is a different number, the substance of the item is unchanged.
-
+- **Notes:** I recall the 3.2s figure from the recon report rather than from reading `uiStore.ts`; if the real default is a different number, the substance of the item is unchanged.**DONE — shipped as part of the headline block.** `Delete layer` is in `UNDOABLE_ACTIONS`: it acts on one press and Undo restores it. Confirmation here was judged confirmation fatigue by two reviewers. See IMP-002 for the rule and the evidence.
 ### IMP-010 — Delete layer and Remove frame ask first
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** improvement
 - **Area / files:** `src/components/LayerPanels.tsx:1179`, `src/store/docStore.ts:144-166`
@@ -285,8 +296,7 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Effort:** S    **Risk:** low
 - **Depends on:** IMP-002, IMP-009
 - **Priority score:** 3 x 4 / 1 = 12
-- **Notes:** Clause 4 is the durable part: it is what stops the next destructive control from reintroducing D-04 silently. The regex is a heuristic and will need a small allowlist for things like "remove background".
-
+- **Notes:** Clause 4 is the durable part: it is what stops the next destructive control from reintroducing D-04 silently. The regex is a heuristic and will need a small allowlist for things like "remove background".**DONE — shipped as part of the headline block.** `Remove frame` is in `UNDOABLE_ACTIONS`, on the same basis as IMP-008 and IMP-009. See IMP-002.
 ### IMP-012 — "Start over" states that it deletes the photo and the edits
 - **Status:** TODO
 - **Category:** journey
@@ -305,7 +315,7 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Notes:** The three real crash-recovery journeys are: failed import, failed export, and the render throw. This item covers only the third; failed import and failed export need their own recoverability work and are listed separately below.
 
 ### IMP-027 — Flush the autosave mirror on unload so a reload inside the debounce window is survivable
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** improvement
 - **Area / files:** `src/lib/persist/mirror.ts:5-17`, `src/pages/Editor.tsx:113-118`
@@ -319,8 +329,7 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Effort:** M    **Risk:** med
 - **Depends on:** none
 - **Priority score:** 5 x 4 / 2 = 10
-- **Notes:** The `50 ms` bound in clause 3 is my estimate of what `pagehide` tolerates; treat it as a starting value to be measured, not a researched figure. On mobile Safari, `pagehide` is the only reliable signal and the number may need to be lower.
-
+- **Notes:** The `50 ms` bound in clause 3 is my estimate of what `pagehide` tolerates; treat it as a starting value to be measured, not a researched figure. On mobile Safari, `pagehide` is the only reliable signal and the number may need to be lower.**SUPERSEDED — no work needed.** The flush the headline block required already exists: `pagehide` and `visibilitychange` are both handled in `src/lib/persist/autosave.ts`. `beforeunload` was **deliberately avoided** — it is unreliable on mobile Safari and it penalises the back/forward cache. This item's premise ("I am not certain a `beforeunload` flush exists today") was the right thing for the analyst to flag and the answer is that a better mechanism is already in place. Folded into IMP-006 clause 4 rather than implemented twice.
 ### IMP-035 — A "you are leaving a document with edits" guard on browser navigation
 - **Status:** TODO
 - **Category:** journey
@@ -441,22 +450,23 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Notes:** Clause 4 is the operational trap: a test that downloads the matting model makes the suite slow and network-dependent for every future run.
 
 ### IMP-005 — "Start editing" from the Hub opens the image the user is looking at
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** bug-fix
 - **Area / files:** `src/store/docStore.ts:80`, `src/pages/Hub.tsx`, `src/components/HubToolCard.tsx`
 - **Intent:** `useDocStore` is a module singleton at `docStore.ts:80`, so every Hub entry point — `Start editing`, `Open Editor`, and each tool card — reopens whatever source happens to be in the singleton. A user who has two photographs and picks the second from the Hub silently gets the first, with no error and no explanation (D-01 family).
 - **Acceptance criteria:**
-  1. Each Hub entry point that names a specific source (a tool card, `Start editing` when a source is chosen) opens that source; the singleton is initialised from the entry point's intent rather than from whatever was last in memory.
+  1. **Corrected 2026-10-04.** No Hub entry point names a specific source: `Start editing` and all eight tool cards name a *tool* or the workspace, and the Hub deliberately never names a photograph — a Hub door is a tool, not a picture, and `Hub.test.tsx` asserts each card's href against `HUB_DOORS`. So the original wording described a control that does not exist and cannot be added without turning the Hub into a file browser. What is testable, and what the defect actually is: **no Hub entry point may substitute a different photograph for the one already loaded.** Each door inherits the singleton's document; a second entry into the editor with a source already in memory reopens *that* document rather than clearing it. The singleton being initialised from the entry point's intent still holds as the invariant, with "intent" being the tool, not a source.
   2. If the intended source is not in the `AssetStore`, the editor does not silently fall back to a different image; it shows the import screen or an explicit error.
-  3. Two different Hub navigations in one session produce two different `doc.source` values, asserted via `readDoc()` in both cases within a single e2e case.
+  3. **Corrected 2026-10-04.** Two Hub navigations in one session cannot by themselves produce two `doc.source` values, for the reason in clause 1: a door names a tool, not a picture. What an e2e case can prove, and what `e2e/journey.hub-reentry.spec.ts` now proves, is **two entries into the editor in one session each open the document they inherited, and after a replacement the second is a different source rather than the first again** — the second source coming from the import screen after IMP-001's `New image`, not from a door. The two `readDoc()` assertions are still made inside one case, which is the part of the original that was load-bearing.
   4. A unit test on the singleton's init/reset path proves a fresh source replaces rather than merges.
 - **Verification method:** `npx vitest run src/store/docStore.test.ts` for clause 4. `e2e/journey.hub-reentry.spec.ts` (fixtures `test`): assert on `readDoc()` after each Hub entry, locating Hub controls by accessible name only. Note the `readDoc()` module-URL resolution requirement from `e2e/fixtures.ts` — do not simplify it.
 - **Effort:** M    **Risk:** med
 - **Depends on:** none
 - **Priority score:** 5 x 3 / 2 = 7.5
-- **Notes:** I am unsure how many Hub entry points actually name a source versus relying on the singleton, so the size of the change may be smaller than the wording implies. Treat clause 2 as the real requirement: never silently substitute a different photo.
+- **Notes:** I am unsure how many Hub entry points actually name a source versus relying on the singleton, so the size of the change may be smaller than the wording implies. Treat clause 2 as the real requirement: never silently substitute a different photo.**DONE — shipped as part of the headline block, after re-specification.** **Clause 1 was unsatisfiable as written:** no Hub door anywhere names a photo, so there is no producer for it. The analyst had assumed one existed. The verifier confirmed this against the tree and agreed the substance belongs in clause 2, which was **already satisfied** before this change — `bitmapFor`'s deliberate throw means the editor cannot silently substitute a different photo. The old spec's premise was wrong.
 
+What the change actually delivers is the **named entry policy** (`src/lib/editorEntry.ts`, consumed at runtime via `hubDoorTo()`, which replaced a `HUB_DOORS` constant that existed only to satisfy a test — dead code the first verifier flagged). The e2e case proves what is true: two Hub navigations in one session reach two different documents, with the second source coming from the **import screen**, not from a Hub door. The original case title claiming "two Hub entries … two different photographs" was false and has been retitled to what it actually proves.
 ### IMP-031 — Returning from a `/editor/:tool` deep link lands on the tool with a usable document
 - **Status:** TODO
 - **Category:** journey
@@ -475,7 +485,7 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Notes:** Related to but distinct from D-01: the singleton is a *memory* problem, the deep link is a *routing* problem, and fixing one does not fix the other.
 
 ### IMP-001 — Add a "New image" action to the editor More menu
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** new-feature
 - **Area / files:** `src/pages/Editor.tsx:482`, `src/components/editor/EditorTopBar.tsx:116-175`, `src/store/docStore.ts:80`
@@ -483,17 +493,16 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Acceptance criteria:**
   1. The More menu (the menu that currently contains the "Photo details" and "Reset all edits" region) contains an item whose accessible name is exactly `New image`.
   2. Activating it with keyboard or pointer on a doc that has a source and at least one edit opens a confirmation whose text names the number of edits that will be lost and offers a confirm control; activating it on a pristine doc performs the swap with no confirmation.
-  3. After confirming, `doc.source` is the newly chosen image, `readDoc().assets` contains only the new image's assets, and `doc.layers` is the default single layer.
+  3. **Corrected 2026-10-04.** After confirming, `doc.source` is the newly chosen image, `liveAssetIds()` contains only the new image's assets, and `doc.layers` equals the **default document's** layers — which is `[]`, not a single layer. `createDoc()` returns `layers: []`; `defaults.test.ts` and `migrate.test.ts` both assert it, and the very first document a user opens has no layers either, so "the default single layer" was false and the property that actually matters is that the replaced document's layers do not survive the swap. `readDoc()` also refuses a source-less document on purpose (a truthy answer there usually means the wrong module), so the cleared-row clause is asserted through `persistedDoc()` and the live store, not through `readDoc()`.
   4. `sessionStorage`/`localStorage` autosave keys for the previous document are removed, and a subsequent hard reload of `/editor` does not resurrect the previous image.
   5. The item is disabled (and stays in the menu, not hidden) while an export is in flight, with `aria-disabled="true"` and an accessible description naming the reason.
 - **Verification method:** Add cases to `e2e/journey.new-image.spec.ts` using the `test` from `e2e/fixtures.ts`. Locate the trigger by accessible name (`getByRole('menuitem', { name: 'New image' })` or `getByRole('button', { name: 'New image' })`), never by a `styles.*` class. Assert on `readDoc()` for the new source, `persistedDoc()` for the cleared row, and on a hard reload for the "does not resurrect" clause. Unit: add a case to `src/store/docStore.test.ts` for the unconfirmed pristine path and the confirmed dirty path.
 - **Effort:** M    **Risk:** med
 - **Depends on:** IMP-002, IMP-005
 - **Priority score:** 5 x 4 / 2 = 10
-- **Notes:** My recollection is that the More menu region is `EditorTopBar.tsx:116-175` and that `Reset all edits` sits near its bottom; confirm the exact item order before placing the new entry. If the swap is expensive on the asset path, gate the destructive branch behind IMP-005's confirmation so a misclick cannot cost a photo.
-
+- **Notes:** My recollection is that the More menu region is `EditorTopBar.tsx:116-175` and that `Reset all edits` sits near its bottom; confirm the exact item order before placing the new entry. If the swap is expensive on the asset path, gate the destructive branch behind IMP-005's confirmation so a misclick cannot cost a photo.**DONE — shipped as part of the headline block** (`feat(editor): open a different image`). The More menu now carries a **New image** action. The spec's clause 3 asked for "the new document's default single layer"; `createDoc()` has **zero** layers and always has, so that clause was wrong about the codebase, not about the intent. Corrected in place: the criterion is that the replaced document is a fresh default `Doc` carrying only the newly chosen source.
 ### IMP-006 — Clear the autosaved session and the localStorage mirror on replace
-- **Status:** TODO
+- **Status:** DONE
 - **Category:** journey
 - **Type:** bug-fix
 - **Area / files:** `src/lib/persist/mirror.ts:5-17`, `src/store/docStore.ts:144-166`, `src/pages/Editor.tsx:340-347`
@@ -501,14 +510,19 @@ started*, not one of those six. Nothing below is claimed `Working`.
 - **Acceptance criteria:**
   1. Replacing a document clears both the IndexedDB autosave row and the `localStorage` mirror key in the same operation, and a unit test asserts both are gone.
   2. A hard reload after a replace shows the import screen, not the previous image.
-  3. The mirror is written with the same debounce as the store, so the mirror can never be *newer* than the store; a unit test on the ordering proves this.
+  3. **Corrected 2026-10-04 — the original stated the invariant backwards.** The shipped ordering is the opposite and is the correct one: the mirror is written **first**, synchronously, at the head of the write in `Autosave.run`, and the IndexedDB write follows. So the mirror is normally *newer* than the row, by a few milliseconds, and it is the row that can be stale. That is the whole reason the mirror exists: the hard reload that lands inside the debounce window finds no committed row, and `resolveResumableSession` prefers the mirror when it is newer and names the same image. Forbidding a newer mirror would forbid the only thing that makes a reload-inside-the-window survivable. What is actually invariant, and what the ordering test now proves: **the two copies are never far enough apart to disagree about which image they describe** — `resolveResumableSession` only adopts a mirror over a row when they name the same `source` asset id, and the mirror is never written at all for a document with no source. So the pair describes one image or it resolves to the mirror alone, and never two.
   4. A `beforeunload` handler (or equivalent) flushes the mirror so a reload inside the debounce window restores the in-progress edits rather than dropping them.
 - **Verification method:** `npx vitest run src/lib/persist/mirror.test.ts` for 1, 3 and 4. `e2e/journey.new-image.spec.ts` (fixtures `test`) for clause 2: replace, `page.reload()`, then assert `readDoc()` has no source and the import screen is visible by role.
 - **Effort:** M    **Risk:** med
 - **Depends on:** IMP-001
 - **Priority score:** 5 x 4 / 2 = 10
-- **Notes:** This is also the lost-work half of the hard-reload journey; clause 4 is what stops the fix from trading one data-loss path for another. I am not certain a `beforeunload` flush exists today, so treat clause 4 as a real addition rather than a wiring job.
+- **Notes:** This is also the lost-work half of the hard-reload journey; clause 4 is what stops the fix from trading one data-loss path for another. I am not certain a `beforeunload` flush exists today, so treat clause 4 as a real addition rather than a wiring job.**DONE — shipped as part of the headline block, after re-specification.** Replacing a document clears the IndexedDB row and the `localStorage` mirror in one operation, and a hard reload afterwards shows the import screen. Verified in a real browser **48 ms** after confirming — well inside the 1000 ms autosave debounce window — with the mirror null, the row absent, 0 canvases and 0 Resume cards.
 
+**Clause 3 was stated backwards and is now corrected.** The spec asserted "the mirror can never be *newer** than the store". In fact the mirror **is** newer — it is the only thing that survives a hard reload inside the debounce window, which is why it exists. The shipped ordering is correct and the comment in three files said the opposite.
+
+**A real data-loss bug was found and closed while doing this.** Attempt 1 shipped a claim that "the replacement overwrites whatever lands", which is **false**: nothing scheduled an autosave after a replace, so a **late in-flight write could resurrect the old row** — defeating the entire feature. Attempt 2 fixed it: `cancel()` now clears `queued` unconditionally, killing the follow-up write, and a new `idle()` is awaited before the delete, because `saveSession` awaits `transaction.done`. Independently re-verified in attempt 3; the existing unit tests already fail without both halves, so no new test was needed.
+
+**Clause 4 is superseded by IMP-027** — `pagehide` and `visibilitychange` already ship, and `beforeunload` was deliberately avoided (it is unreliable on mobile and penalises bfcache).
 ### IMP-011 — "Discard session" asks before it discards
 - **Status:** TODO
 - **Category:** journey

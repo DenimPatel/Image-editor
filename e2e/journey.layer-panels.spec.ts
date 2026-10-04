@@ -168,6 +168,9 @@ test.describe('layer panels', () => {
     expect((await readDoc()).layers[0].transform.x).toBeCloseTo(before.x + 0.2, 6)
 
     await text.getByRole('button', { name: 'Delete layer' }).click()
+    // One press, no question — `removeLayer` pushes its own undo step, so Undo is the
+    // recovery and a dialog here would only be a second decision about work the user
+    // can already get back.
     await settle()
     expect((await readDoc()).layers).toHaveLength(0)
     await expect(text.getByText(EMPTY_STATE.Text)).toBeVisible()

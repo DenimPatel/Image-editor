@@ -209,3 +209,25 @@ export const SaveGlyph = icon(
     <rect x="8" y="13" width="8" height="6" rx="1" />
   </>,
 )
+
+/**
+ * A frame with a horizon in it, and a plus beside it.
+ *
+ * The row this marks replaces the *whole* document, so the mark has to be about a
+ * photograph rather than about a file: `SaveGlyph` is already "a thing being put
+ * somewhere" and `ArchiveGlyph` is already "something being put away", and both
+ * would have made "New image" read as one of those.
+ *
+ * The frame is drawn narrower than `CompareGlyph`'s (13 units of 24 rather than 18,
+ * with the plus in the gap beside it) so the two cannot be mistaken at 20px, and
+ * `icons.test.tsx` hashes the artwork so neither can drift into the other.
+ */
+export const NewImageGlyph = icon(
+  <>
+    <rect x="2.5" y="5.5" width="13" height="13" rx="2" />
+    <path d="M2.5 15l3.5-3.5 3 3" />
+    <circle cx="6.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
+    <line x1="20" y1="9" x2="20" y2="15" />
+    <line x1="17" y1="12" x2="23" y2="12" />
+  </>,
+)

@@ -179,6 +179,16 @@ export type UiStore = {
   /** Error toasts that outlived the 3.2 s dismissal. See `ERROR_LOG_KEY`. */
   errorLog: LoggedError[]
   showHelp: boolean
+  /**
+   * An encode is running right now.
+   *
+   * The export sheet knows this in local state, and a control outside the sheet
+   * does not — which is why "New image" had to be either unguarded or guessing.
+   * Replacing the document under a running encode hands the encoder a photograph
+   * the user did not ask to export, so the state is in the store where the menu
+   * can read it. Chrome, not content: it never reaches `Doc` or history.
+   */
+  exportBusy: boolean
 
   setActiveTool: (tool: ToolId | null) => void
   setSheetDetent: (detent: SheetDetent) => void
@@ -195,6 +205,7 @@ export type UiStore = {
   dismissToast: (id: string) => void
   clearErrorLog: () => void
   setShowHelp: (show: boolean) => void
+  setExportBusy: (busy: boolean) => void
 }
 
 const DEFAULT_VIEWPORT: Viewport = { scale: 1, x: 0, y: 0 }
@@ -226,6 +237,7 @@ export const useUiStore = create<UiStore>((set) => ({
   toasts: [],
   errorLog: readErrorLog(),
   showHelp: false,
+  exportBusy: false,
 
   setActiveTool: (activeTool) => set({ activeTool }),
   setSheetDetent: (sheetDetent) => set({ sheetDetent }),
@@ -281,4 +293,5 @@ export const useUiStore = create<UiStore>((set) => ({
     set({ errorLog: [] })
   },
   setShowHelp: (showHelp) => set({ showHelp }),
+  setExportBusy: (exportBusy) => set({ exportBusy }),
 }))

@@ -333,6 +333,56 @@ describe('implicit key coalescing', () => {
     ;({ history } = applyEdit(history, interaction, { value: 3 }, { key: 'a', now: 20 }))
     expect(history.past).toHaveLength(3)
   })
+
+  /**
+   * What a keyboard nudge actually costs, measured rather than assumed.
+   *
+   * A comment elsewhere in this change claimed that "three nudges of one slider
+   * coalesce into one undo step", and the independent run measured three presses
+   * producing three steps. Both were right about different things, and the comment
+   * was the wrong one: coalescing is an `applyEdit` feature keyed on the implicit
+   * `key`, and `DialSlider`'s keyboard path brackets every keydown in
+   * `beginInteraction`/`endInteraction` (D2-F04). An *open span* pushes exactly one
+   * `past` entry regardless of how many edits arrive inside it — which is what
+   * makes a held arrow key one undo step — and each discrete press is its own span.
+   *
+   * This case pins both halves, because the difference between them is invisible
+   * from the history engine alone and is the thing a caller quotes a number from:
+   * "Start a new image?" counts `past.length`, and that number has to be the one
+   * Ctrl+Z would actually take.
+   */
+  it('counts a held key as one step and three separate presses as three', () => {
+    // Three presses of the same slider: three spans, three entries.
+    let history = createHistory<State>({ value: 0 })
+    let interaction = initialInteraction
+    for (let press = 1; press <= 3; press += 1) {
+      interaction = beginInteraction(interaction, 'exposure')
+      ;({ history, interaction } = applyEdit(
+        history,
+        interaction,
+        { value: press },
+        { now: press * 1_000 },
+      ))
+      interaction = endInteraction(interaction)
+    }
+    expect(history.past).toHaveLength(3)
+
+    // The same three keydowns inside one open span — which is what auto-repeat
+    // produces, because keyup only arrives when the key is released.
+    let held = createHistory<State>({ value: 0 })
+    let span = beginInteraction(initialInteraction, 'exposure')
+    for (let repeat = 1; repeat <= 3; repeat += 1) {
+      ;({ history: held, interaction: span } = applyEdit(
+        held,
+        span,
+        { value: repeat },
+        { now: repeat * 30 },
+      ))
+    }
+    expect(endInteraction(span).key).toBeNull()
+    expect(held.past).toHaveLength(1)
+    expect(held.present).toEqual({ value: 3 })
+  })
 })
 
 describe('transient edits', () => {

@@ -107,6 +107,14 @@ test.describe('an edit made just before a hard reload', () => {
     await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible()
     await page.getByRole('button', { name: 'Discard' }).click()
 
+    // Discarding a stored photo is the one thing here with no undo behind it, so
+    // it asks — and the body says so, because "Resume" is on the same screen and a
+    // reader who presses the wrong button has to know Resume is not coming back.
+    const dialog = page.getByRole('dialog', { name: 'Discard this session?' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText('no Undo')
+    await dialog.getByRole('button', { name: 'Discard session' }).click()
+
     // A mirror is a second copy of the document, so a discard that cleared only
     // IndexedDB would silently re-offer what the user just threw away.
     expect(await page.evaluate((key) => localStorage.getItem(key), MIRROR_KEY)).toBeNull()
