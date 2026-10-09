@@ -181,7 +181,7 @@ jobs:
         # read the numbers behind is a budget nobody can argue with — or lower,
         # when the honest move is to lower it.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: perf-reports-${{ matrix.project }}
           path: test-results/perf/
@@ -192,7 +192,7 @@ jobs:
         # tolerated violation is still visible instead of being a line in a
         # comment nobody reads.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report-${{ matrix.project }}
           path: |
