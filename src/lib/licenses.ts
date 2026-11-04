@@ -376,7 +376,7 @@ export const PACKAGE_LICENCES: BundledWork[] = [
   {
     id: 'react-router-dom',
     name: 'react-router-dom',
-    version: '6.30.6',
+    version: '7.18.5',
     licence: 'MIT',
     url: 'https://github.com/remix-run/react-router',
     kind: 'package',

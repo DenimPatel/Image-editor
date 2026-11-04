@@ -595,12 +595,12 @@ describe('the previews show the option, not a word', () => {
     // "Match system" is not a third palette. It is whichever the OS asks for, so
     // it is drawn as the two of them at once — the only drawing that is true
     // before the reader clicks anything.
-    // A gradient value is not normalised the way a plain colour is, so this one
-    // is read as written.
-    expect(barOf(2).bar).toContain(ACCENT_SURFACES.lightSurface)
-    expect(barOf(2).bar).toContain(ACCENT_SURFACES.darkSurface)
-    expect(barOf(2).body).toContain(ACCENT_SURFACES.lightBg)
-    expect(barOf(2).body).toContain(ACCENT_SURFACES.darkBg)
+    // jsdom normalises the colours inside a gradient to `rgb()` too, so both
+    // sides go through the same normalisation.
+    expect(barOf(2).bar).toContain(rgb(ACCENT_SURFACES.lightSurface))
+    expect(barOf(2).bar).toContain(rgb(ACCENT_SURFACES.darkSurface))
+    expect(barOf(2).body).toContain(rgb(ACCENT_SURFACES.lightBg))
+    expect(barOf(2).body).toContain(rgb(ACCENT_SURFACES.darkBg))
   })
 
   it('draws Motion as play for on and pause for reduced, and never as movement', () => {

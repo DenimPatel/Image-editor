@@ -1,7 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- an icon module is a
-   catalogue, not a stateful component tree: there is no hook state to lose on a hot
-   reload, and splitting the lookups away from the marks they name would make the
-   system harder to read, not easier. */
 import type { ReactElement, ReactNode, SVGProps } from 'react'
 import { signatureOf } from './signature'
 

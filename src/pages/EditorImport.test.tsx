@@ -102,7 +102,7 @@ function image(name = 'beach.jpg', type = 'image/jpeg', width = 400, height = 30
  */
 function EditorAt({ path }: { path: string }) {
   return (
-    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true }}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/editor" element={<Editor />} />
         <Route path="/editor/:tool" element={<Editor />} />
