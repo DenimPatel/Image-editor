@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components -- this module is the route
+   table, not a component tree: the lazy pages are named here so the router can own
+   their titles and fallbacks, and the table itself has no hot state to lose. */
 import { Suspense, lazy } from 'react'
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { RouteError } from './components/ui/RouteError'

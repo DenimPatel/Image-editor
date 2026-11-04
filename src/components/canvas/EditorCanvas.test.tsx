@@ -55,31 +55,33 @@ const layers = () => useDocStore.getState().present.layers
 const gesture = () => harness.container.querySelector('[class*="gestureLayer"]') as HTMLElement
 
 /**
- * jsdom has no `PointerEvent` *and* no `TouchEvent`, so `@use-gesture` — which
- * probes the browser and binds touch handlers when pointer events are missing —
- * is driven with a plain `Event` carrying a hand-built touch point.
+ * `@use-gesture` probes the browser once at import and binds pointer handlers
+ * when `PointerEvent` exists — which it does from jsdom 30 on. It calls
+ * `setPointerCapture` on pointerdown, and jsdom still has no pointer capture, so
+ * the stand-in installs no-ops before any gesture runs.
  */
-function touchAt(type: string, clientX: number, clientY: number) {
-  const target = gesture()
-  const event = new Event(type, { bubbles: true, cancelable: true })
-  const point = {
-    identifier: 1,
-    target,
+function installPointerCapture(): void {
+  Element.prototype.setPointerCapture ??= () => undefined
+  Element.prototype.releasePointerCapture ??= () => undefined
+  Element.prototype.hasPointerCapture ??= () => false
+}
+
+/**
+ * Real browsers drive this component with PointerEvents, so the tests do too
+ * rather than standing in a TouchEvent `@use-gesture` no longer listens for.
+ */
+function pointerAt(type: string, clientX: number, clientY: number): PointerEvent {
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
     clientX,
     clientY,
-    pageX: clientX,
-    pageY: clientY,
-    screenX: clientX,
-    screenY: clientY,
-  }
-  for (const name of ['changedTouches', 'touches', 'targetTouches']) {
-    Object.defineProperty(event, name, { value: [point] })
-  }
-  // A real browser drives this component with PointerEvents, which carry
-  // `clientX` on the event itself; a TouchEvent does not, so the stand-in does.
-  Object.defineProperty(event, 'clientX', { value: clientX })
-  Object.defineProperty(event, 'clientY', { value: clientY })
-  return event
+    pointerId: 1,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+    buttons: type === 'pointerup' ? 0 : 1,
+  })
 }
 
 /** jsdom lays nothing out, so the canvas claims a 400x400 box at the origin. */
@@ -107,16 +109,16 @@ function stubCanvasBox() {
 function drag(fromX: number, fromY: number, toX: number, toY: number) {
   const target = gesture()
   act(() => {
-    target.dispatchEvent(touchAt('touchstart', fromX, fromY))
+    target.dispatchEvent(pointerAt('pointerdown', fromX, fromY))
   })
   act(() => {
-    target.dispatchEvent(touchAt('touchmove', fromX + 8, fromY))
+    target.dispatchEvent(pointerAt('pointermove', fromX + 8, fromY))
   })
   act(() => {
-    target.dispatchEvent(touchAt('touchmove', toX, toY))
+    target.dispatchEvent(pointerAt('pointermove', toX, toY))
   })
   act(() => {
-    target.dispatchEvent(touchAt('touchend', toX, toY))
+    target.dispatchEvent(pointerAt('pointerup', toX, toY))
   })
 }
 
@@ -137,6 +139,7 @@ function loadImage() {
 
 beforeEach(() => {
   stubCanvas()
+  installPointerCapture()
   resetStores()
   loadImage()
   act(() => {
@@ -152,10 +155,10 @@ describe('D2-F05: a first stroke is one undo step, not two', () => {
     setTool('draw')
     const target = gesture()
     act(() => {
-      target.dispatchEvent(touchAt('touchstart', 200, 200))
+      target.dispatchEvent(pointerAt('pointerdown', 200, 200))
     })
     act(() => {
-      target.dispatchEvent(touchAt('touchmove', 240, 240))
+      target.dispatchEvent(pointerAt('pointermove', 240, 240))
     })
     expect(layers()).toHaveLength(1)
     expect(layers()[0]?.kind).toBe('draw')

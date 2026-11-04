@@ -425,7 +425,8 @@ describe('the pad draws the crop through the pipeline, and admits it when it can
     })
     // 640 × 480 source with the top and bottom quarters cropped away: 640 × 240,
     // so a 16:9-ish pad and not the source's 4:3.
-    expect(pad().style.aspectRatio).toBe(String(640 / 240))
+    // jsdom serialises the ratio as `w / h`, so compare the number it names.
+    expect(Number.parseFloat(pad().style.aspectRatio)).toBeCloseTo(640 / 240)
   })
 
   it('says the crop could not be drawn, and leaves the sliders as the way through', async () => {

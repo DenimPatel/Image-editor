@@ -52,7 +52,7 @@ const clipboardMock = {
 
 function renderEditor(): void {
   harness.render(
-    <MemoryRouter initialEntries={['/editor']} future={{ v7_startTransition: true }}>
+    <MemoryRouter initialEntries={['/editor']}>
       <Editor />
     </MemoryRouter>,
   )
